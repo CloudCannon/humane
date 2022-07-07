@@ -1,0 +1,37 @@
+{
+  "name": "humane",
+  "version": "0.1.0",
+  "description": "Humane testing for rigid machines.",
+  "bin": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CloudCannon/humane"
+  },
+  "scripts": {
+    "postinstall": "node ./lib/postinstall.js"
+  },
+  "author": "@LiamBigelow",
+  "license": "MIT",
+  "dependencies": {
+    "https-proxy-agent": "^5.0.0",
+    "proxy-from-env": "^1.1.0"
+  },
+  "overrides": {
+    "agent-base": "^6.0.2"
+  },
+  "keywords": [
+    "CloudCannon",
+    "Cloud",
+    "Cannon",
+    "humane",
+    "humanity",
+    "testing",
+    "cucumber",
+    "bdd",
+    "test"
+  ],
+  "bugs": {
+    "url": "https://github.com/CloudCannon/humane/issues"
+  },
+  "homepage": "https://github.com/CloudCannon/humane#readme"
+}
