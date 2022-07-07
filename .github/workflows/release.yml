@@ -48,6 +48,7 @@ jobs:
           git commit -m "Deploy changes."
 
       - name: Build
+        working-directory: ./humane
         run: cargo build --release --verbose
       - name: Publish
         working-directory: ./humane
