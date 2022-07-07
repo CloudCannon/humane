@@ -153,12 +153,6 @@ jobs:
           # Commit changes so cargo doesn't complain about dirty repo
           git commit -m "Deploy changes."
 
-      - name: Package Crate
-        working-directory: ./humane
-        run: |
-          # Package crate to ensure it works without issue
-          cargo package --allow-dirty
-
       - name: Test Lib
         working-directory: ./humane
         run: cargo run # Humane tests itself when run
