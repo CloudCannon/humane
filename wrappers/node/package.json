@@ -1,6 +1,6 @@
 {
   "name": "humane",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Humane testing for rigid machines.",
   "bin": "lib/index.js",
   "repository": {
