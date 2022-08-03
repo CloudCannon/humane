@@ -153,8 +153,8 @@ jobs:
           git checkout -b deploy_branch
       - name: Prepare Crates
         run: |
-          # Update cargo version, 
-          printf ",s/version = \"0.0.0\"/version = \"$GIT_VERSION\"/g\nw\n" | ed ./humane/Cargo.toml
+          # Update cargo version
+          node ./.backstage/version.cjs
           git add ./humane/Cargo.toml
           # Commit changes so cargo doesn't complain about dirty repo
           git commit -m "Deploy changes."
