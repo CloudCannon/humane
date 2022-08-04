@@ -88,10 +88,18 @@ jobs:
         with:
           name: release
           path: build-artifacts
+      - name: Get Version
+        run: echo GIT_VERSION="$(git describe --tags | sed 's/^v\(.*\)$/\1/')" >> $GITHUB_ENV
+      - name: Build Changelog
+        run: |
+          node ./.backstage/changelog.cjs write
+          git add ./CHANGELOG.md
+          git commit -m "Changelog for $GIT_VERSION"
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
+          body_path: RELEASE.md
           files: |
             build-artifacts/*
         env:
@@ -138,6 +146,14 @@ jobs:
             ~/.rustup
             humane/target
           key: ${{ runner.os }}-${{ matrix.rust }}
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Verify Changelog
+        run: |
+          node ./.backstage/changelog.cjs
 
       - name: Install Linker
         if: matrix.cross

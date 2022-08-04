@@ -9,10 +9,10 @@ const err = (m) => {
     process.exit(1);
 }
 
-if (!version) err("Versioning expected a GIT_VERSION environment variable");
+if (!version) err("Script expected a GIT_VERSION environment variable");
 
 const file = path.join(__dirname, "../humane/Cargo.toml");
-if (!fs.existsSync(file)) err(`Versioning expected a file at ${file}`);
+if (!fs.existsSync(file)) err(`Script expected a file at ${file}`);
 
 let contents = fs.readFileSync(file, { encoding: "utf-8" });
 if (!version_re.test(contents)) err(`Expected file to contain version = "0.0.0"`);
