@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.3.4 (August 4, 2022)
+
 * Fixed the uploading of release binaries via CI.
 
 ## v0.3.3 (August 4, 2022) [BROKEN]
