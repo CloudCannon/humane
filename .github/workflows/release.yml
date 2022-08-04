@@ -69,7 +69,11 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: release-checksums
-          path: checksums
+          path: wrappers/node/checksums
+      - name: Prepare package
+        run: |
+          RELEASE_VERSION=${GITHUB_REF#refs/tags/}
+          npm version $(echo $RELEASE_VERSION | cut -c1-)
       - name: Publish
         run: npm publish
         env:
