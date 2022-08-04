@@ -86,14 +86,18 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v2
-        with:
-          ref: main
+      - name: Get Version
+        run: echo GIT_VERSION="$(git describe --tags | sed 's/^v\(.*\)$/\1/')" >> $GITHUB_ENV
       - uses: actions/download-artifact@v3
         with:
           name: release
           path: build-artifacts
       - name: Get Version
         run: echo GIT_VERSION="$(git describe --tags | sed 's/^v\(.*\)$/\1/')" >> $GITHUB_ENV
+      - name: Swap to main
+        uses: actions/checkout@v2
+        with:
+          ref: main
       - name: Build Changelog
         run: |
           node ./.backstage/changelog.cjs write
