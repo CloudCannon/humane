@@ -42,7 +42,7 @@ jobs:
       - name: Prepare Crates
         run: |
           # Update cargo version, 
-          printf ",s/version = \"0.0.0\"/version = \"$GIT_VERSION\"/g\nw\n" | ed ./humane/Cargo.toml
+          node ./.backstage/version.cjs
           git add ./humane/Cargo.toml
           # Commit changes so cargo doesn't complain about dirty repo
           git commit -m "Deploy changes."
@@ -195,13 +195,13 @@ jobs:
           # Commit changes so cargo doesn't complain about dirty repo
           git commit -m "Deploy changes."
 
-      - name: Test Lib
-        working-directory: ./humane
-        run: cargo run # Humane tests itself when run
-
       - name: Build
         working-directory: ./humane
         run: RELEASE_VERSION=${GITHUB_REF#refs/tags/} cargo build --release --target ${{ matrix.target }}
+
+      - name: Test Lib
+        working-directory: ./humane
+        run: cargo run --release
 
       - name: Package Artifacts
         run: |
