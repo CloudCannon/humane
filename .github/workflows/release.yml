@@ -209,7 +209,7 @@ jobs:
 
       - name: Test Lib
         working-directory: ./humane
-        run: cargo run --release
+        run: cargo run --release --target ${{ matrix.target }}
 
       - name: Package Artifacts
         run: |
