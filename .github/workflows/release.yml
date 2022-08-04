@@ -86,6 +86,8 @@ jobs:
     steps:
       - name: Clone
         uses: actions/checkout@v2
+        with:
+          ref: main
       - uses: actions/download-artifact@v3
         with:
           name: release
