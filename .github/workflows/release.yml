@@ -12,9 +12,9 @@ env:
 
 jobs:
   publish-crate:
-    name: Publish Crate
+    name: Publish crate
     runs-on: ubuntu-20.04
-    needs: publish-to-github
+    needs: publish-github-release
     steps:
       - name: Clone
         uses: actions/checkout@v2
@@ -59,7 +59,7 @@ jobs:
   publish-npm-package:
     name: Publish NPM package
     runs-on: ubuntu-20.04
-    needs: publish-to-github
+    needs: publish-github-release
     defaults:
       run:
         working-directory: ./wrappers/node
@@ -81,8 +81,26 @@ jobs:
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-  publish-to-github:
-    name: Publish to Github and Crates
+  publish-github-release:
+    name: Publish to GitHub
+    runs-on: ubuntu-20.04
+    needs: test-and-build
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: release
+          path: build-artifacts
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            build-artifacts/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test-and-build:
+    name: Test packages and build all artifacts
     runs-on: ${{matrix.os}}
     defaults:
       run:
@@ -207,12 +225,10 @@ jobs:
           fi
           echo "ASSET_PATH=$ASSET_PATH" >> $GITHUB_ENV
           echo "CHECKSUM_PATH=$CHECKSUM_PATH" >> $GITHUB_ENV
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
         with:
-          files: |
+          name: release
+          path: |
             ${{ env.ASSET_PATH }}
             ${{ env.CHECKSUM_PATH }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
