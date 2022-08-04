@@ -27,7 +27,7 @@ while (!(entry = it.next()).done) {
     let [num, line] = entry.value;
     // Read until we reach our unreleased changelog section.
     if (/^\s*## Unreleased\s*$/.test(line)) {
-        let releaseHeader = `## ${version} (${date()})`;
+        let releaseHeader = `## v${version} (${date()})`;
         lines[num] = `## Unreleased\n\n${releaseHeader}`;
         break;
     }

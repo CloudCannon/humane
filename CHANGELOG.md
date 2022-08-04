@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 0.3.3 (August 4, 2022)
+## v0.3.3 (August 4, 2022)
 
 * Implemented changelog handling and release notes as part of the automated release flow.
 
