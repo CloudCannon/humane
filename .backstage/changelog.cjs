@@ -20,16 +20,15 @@ if (!version) err("Script expected a GIT_VERSION environment variable");
 if (!fs.existsSync(changelogFile)) err(`Script expected a file at ${changelogFile}`);
 
 let contents = fs.readFileSync(changelogFile, { encoding: "utf-8" });
-let release = [], lines = contents.split(/\n/g);
+let releaseHeader = "", release = [], lines = contents.split(/\n/g);
 let it = lines.entries();
 
 while (!(entry = it.next()).done) {
     let [num, line] = entry.value;
     // Read until we reach our unreleased changelog section.
     if (/^\s*## Unreleased\s*$/.test(line)) {
-        let header = `## ${version} (${date()})`;
-        lines[num] = `## Unreleased\n\n${header}`;
-        release.push(header);
+        releaseHeader = `## ${version} (${date()})`;
+        lines[num] = `## Unreleased\n\n${releaseHeader}`;
         break;
     }
 }
@@ -52,6 +51,6 @@ if (!release.some((v => v.trim().length))) {
 }
 
 if (process.argv[2] === "write") {
-    fs.writeFileSync(releaseFile, release.join('\n'));
+    fs.writeFileSync(releaseFile, [releaseHeader, ...release].join('\n'));
     fs.writeFileSync(changelogFile, lines.join('\n'));
 }
