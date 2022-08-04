@@ -25,7 +25,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.rustup
-            target
+            humane/target
           key: ${{ runner.os }}-stable
       - name: Setup
         run: |
@@ -132,7 +132,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.rustup
-            target
+            humane/target
           key: ${{ runner.os }}-${{ matrix.rust }}
 
       - name: Install Linker
