@@ -83,10 +83,9 @@ jobs:
     name: Publish to GitHub
     runs-on: ubuntu-20.04
     needs: test-and-build
-    defaults:
-      run:
-        working-directory: "."
     steps:
+      - name: Clone
+        uses: actions/checkout@v2
       - uses: actions/download-artifact@v3
         with:
           name: release
