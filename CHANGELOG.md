@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* Fix to not require the `--name` flag
+
 ## v0.3.5 (August 9, 2022)
 
 * Re-exported the `-n` / `--name` CLI flag from cucumber to allow running individual tests

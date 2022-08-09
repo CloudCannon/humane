@@ -21,7 +21,7 @@ pub struct HumanHumaneConfig {
         help = "Regex to filter scenarios by their name. Defers to cucumber's --name flag"
     )]
     #[clap(required = false)]
-    pub name: String,
+    pub name: Option<String>,
 }
 
 mod defaults {
