@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.3.6 (August 9, 2022)
+
 * Fix to not require the `--name` flag
 
 ## v0.3.5 (August 9, 2022)
