@@ -14,6 +14,14 @@ pub struct HumanHumaneConfig {
     #[clap(required = false)]
     #[serde(default = "defaults::default_test_files")]
     pub test_file_root: String,
+
+    #[clap(
+        long,
+        short,
+        help = "Regex to filter scenarios by their name. Defers to cucumber's --name flag"
+    )]
+    #[clap(required = false)]
+    pub name: String,
 }
 
 mod defaults {

@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* Re-exported the `-n` / `--name` CLI flag from cucumber to allow running individual tests
+
 ## v0.3.4 (August 4, 2022)
 
 * Fixed the uploading of release binaries via CI.
