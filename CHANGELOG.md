@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* Add an `en` lang to the default html page template
+
 ## v0.3.6 (August 9, 2022)
 
 * Fix to not require the `--name` flag

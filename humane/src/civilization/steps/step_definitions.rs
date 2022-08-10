@@ -289,7 +289,7 @@ fn template_file(body_contents: &str) -> String {
     format!(
         r#"
 <!DOCTYPE html>
-<html>
+<html lang="en">
     <head>
     </head>
     <body>
