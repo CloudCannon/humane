@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.3.7 (August 10, 2022)
+
 * Add an `en` lang to the default html page template
 
 ## v0.3.6 (August 9, 2022)
