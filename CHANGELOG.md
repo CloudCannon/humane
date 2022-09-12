@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.3.8 (September 12, 2022)
+
 * Add stdout/stderr selection support for testing strings
 
 ## v0.3.7 (August 10, 2022)
