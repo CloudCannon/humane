@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* Add stdout/stderr selection support for testing strings
+
 ## v0.3.7 (August 10, 2022)
 
 * Add an `en` lang to the default html page template

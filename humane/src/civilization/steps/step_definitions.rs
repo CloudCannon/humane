@@ -68,14 +68,24 @@ fn run_rosey_with_options(world: &mut Civilization, step: &Step) {
 
 // THENS
 
-#[then(regex = "^(DEBUG )?I should see (?:\"|')(.*)(?:\"|') in stdout$")]
-fn stdout_does_contain(world: &mut Civilization, debug: StepDebug, expected: String) {
+#[then(regex = "^(DEBUG )?I should see (?:\"|')(.*)(?:\"|') in (\\w+)$")]
+fn stdout_does_contain(
+    world: &mut Civilization,
+    debug: StepDebug,
+    expected: String,
+    stream: Stream,
+) {
     match &world.last_command_output {
         Some(command) => {
             debug.log(&command.stdout);
             debug.log(&command.stderr);
 
-            if !command.stdout.contains(&expected) {
+            let stream = match stream {
+                Stream::Stdout => &command.stdout,
+                Stream::Stderr => &command.stderr,
+            };
+
+            if !stream.contains(&expected) {
                 panic!(
                 "String does not exist in the STDOUT:\n-----\n{}\n-----\nSTDERR:\n-----\n{}\n-----\n",
                     command.stdout,
@@ -331,6 +341,22 @@ impl FromStr for Not {
         match s {
             "not " => Ok(Not(true)),
             _ => Ok(Not(false)),
+        }
+    }
+}
+
+enum Stream {
+    Stdout,
+    Stderr,
+}
+
+impl FromStr for Stream {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "stdout" => Ok(Self::Stdout),
+            "stderr" => Ok(Self::Stderr),
+            _ => Err("Unknown stream"),
         }
     }
 }
