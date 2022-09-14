@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* Support checking bools in humane JSON tests
+
 ## v0.3.8 (September 12, 2022)
 
 * Add stdout/stderr selection support for testing strings
