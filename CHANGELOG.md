@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.3.9 (September 14, 2022)
+
 * Support checking bools in humane JSON tests
 
 ## v0.3.8 (September 12, 2022)
