@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* Fix: Exit with an error code if tests fail
+
 ## v0.3.9 (September 14, 2022)
 
 * Support checking bools in humane JSON tests

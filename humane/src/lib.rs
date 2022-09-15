@@ -16,7 +16,7 @@ impl Humane {
     }
 
     pub async fn go(&mut self) {
-        Cucumber::new()
+        let r = Cucumber::new()
             .steps(Civilization::collection())
             .max_concurrent_scenarios(Some(8))
             .after(|_, _, _, maybe_world| {
@@ -30,5 +30,8 @@ impl Humane {
                 !sc.tags.iter().any(|t| t == "skip")
             })
             .await;
+        if r.parsing_errors > 0 || r.failed_hooks > 0 {
+            std::process::exit(1);
+        }
     }
 }
