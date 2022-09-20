@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.3.10 (September 20, 2022)
+
 * Fix: Exit with an error code if tests fail
 
 ## v0.3.9 (September 14, 2022)
