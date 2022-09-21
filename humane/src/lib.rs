@@ -30,7 +30,11 @@ impl Humane {
                 !sc.tags.iter().any(|t| t == "skip")
             })
             .await;
-        if r.parsing_errors > 0 || r.failed_hooks > 0 {
+        if r.parsing_errors > 0
+            || r.failed_hooks > 0
+            || r.scenarios.failed > 0
+            || r.steps.failed > 0
+        {
             std::process::exit(1);
         }
     }
