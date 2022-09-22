@@ -22,5 +22,5 @@ try {
         }
     )
 } catch (err) {
-    //Purposefully ignore errors as the CLI should handle all the messaging etc.
+    process.exit(1);
 }

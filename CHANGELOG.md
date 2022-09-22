@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* Fix: Exit NPM wrapper with an error code if tests fail
+
 ## v0.3.11 (September 22, 2022)
 
 * Fix: Correctly exit with an error code if tests fail
