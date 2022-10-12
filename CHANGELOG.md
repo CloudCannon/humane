@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* Fix indentation underflow in test failure error message when a file doesn't exist
+
 ## v0.3.28 (October 12, 2022)
 
 * No changes. Testing release workflows.
