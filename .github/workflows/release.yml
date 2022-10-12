@@ -118,6 +118,7 @@ jobs:
         with:
           github_token: ${{ steps.get_workflow_token.outputs.token }}
           branch: main
+          force_with_lease: true
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
