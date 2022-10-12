@@ -84,8 +84,16 @@ jobs:
     runs-on: ubuntu-20.04
     needs: test-and-build
     steps:
+      - name: Get Token
+        id: get_workflow_token
+        uses: peter-murray/workflow-application-token-action@v2
+        with:
+          application_id: ${{ secrets.CC_OSS_BOT_ID }}
+          application_private_key: ${{ secrets.CC_OSS_BOT_PEM }}
       - name: Clone
         uses: actions/checkout@v2
+        with:
+          token: ${{ steps.get_workflow_token.outputs.token }}
       - name: Get Version
         run: echo GIT_VERSION="$(git describe --tags | sed 's/^v\(.*\)$/\1/')" >> $GITHUB_ENV
       - name: Swap to main
@@ -100,8 +108,6 @@ jobs:
       - name: Build Changelog
         run: |
           node ./.backstage/changelog.cjs write
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
           git add ./CHANGELOG.md
           git commit -m "Changelog for $GIT_VERSION"
           git push
@@ -113,7 +119,7 @@ jobs:
           files: |
             build-artifacts/*
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
 
   test-and-build:
     name: Test packages and build all artifacts
