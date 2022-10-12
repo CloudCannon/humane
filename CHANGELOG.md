@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* No changes. Testing release workflows.
+
 ## v0.3.12 (September 22, 2022)
 
 * Fix: Exit NPM wrapper with an error code if tests fail
