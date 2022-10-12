@@ -109,15 +109,33 @@ jobs:
       - name: Build Changelog
         run: |
           node ./.backstage/changelog.cjs write
-      - name: Commit file
-        uses: swinton/commit@v2.x
+
+      - name: Commit changes
         env:
-          GH_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
-        with:
-          files: |
-            CHANGELOG.md
-          commit-message: Changelog for ${{ env.GIT_VERSION }}
-          ref: refs/heads/main
+          GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+          GIT_VERSION: ${{ env.GIT_VERSION }}
+          FILE_TO_COMMIT: CHANGELOG.md
+          DESTINATION_BRANCH: main
+        run: |
+          export MESSAGE="Changelog for $GIT_VERSION"
+          export SHA=$( git rev-parse $DESTINATION_BRANCH:$FILE_TO_COMMIT )
+          gh api --method PUT /repos/cloudcannon/humane/contents/$FILE_TO_COMMIT \
+            --field message="$MESSAGE" \
+            --field content=@<( base64 -i $FILE_TO_COMMIT ) \  
+            --field branch="$DESTINATION_BRANCH" \
+            --field sha="$SHA"
+
+      # - uses: octokit/request-action@v2.x
+      #   id: push_changes
+      #   with:
+      #     route: PUT /repos/{owner}/{repo}/contents/CHANGELOG.md
+      #     owner: cloudcannon
+      #     repo: humane
+      #     branch: main
+      #     message: Changelog for ${{ env.GIT_VERSION }}
+      #   env:
+      #     GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
+
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
