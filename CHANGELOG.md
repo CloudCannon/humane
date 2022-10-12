@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.3.28 (October 12, 2022)
+
 * No changes. Testing release workflows.
 
 ## v0.3.27 (October 12, 2022)
