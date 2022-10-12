@@ -109,9 +109,8 @@ jobs:
       - name: Build CHANGELOG
         run: |
           node ./.backstage/changelog.cjs write
-          echo CHANGELOG="$(base64 -i CHANGELOG.md)" >> $GITHUB_ENV
-          echo SHA="$( git rev-parse main:CHANGELOG.md )" >> $GITHUB_ENV
-
+          echo CHANGELOG=\"$(base64 -i CHANGELOG.md)\" >> $GITHUB_ENV
+          echo SHA=\"$( git rev-parse main:CHANGELOG.md )\" >> $GITHUB_ENV
       - name: Commit new CHANGELOG
         uses: octokit/request-action@v2.x
         id: push_changes
