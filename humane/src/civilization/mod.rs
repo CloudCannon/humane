@@ -99,7 +99,7 @@ impl Civilization {
         let glob = Glob::new("**/*").unwrap();
         let base_dir = self.tmp_file_path(".");
         let entries: Vec<String> = glob
-            .walk(&base_dir, usize::MAX)
+            .walk(&base_dir)
             .flatten()
             .map(|entry| {
                 let file = entry.path().strip_prefix(&base_dir).unwrap();
