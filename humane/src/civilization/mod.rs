@@ -96,19 +96,23 @@ impl Civilization {
     }
 
     fn get_file_tree(&mut self) -> String {
-        let glob = Glob::new("**/*").unwrap();
+        let glob = Glob::new("**/*").expect("Valid glob");
         let base_dir = self.tmp_file_path(".");
-        let entries: Vec<String> = glob
-            .walk(&base_dir)
-            .flatten()
-            .map(|entry| {
-                let file = entry.path().strip_prefix(&base_dir).unwrap();
-                let indentation = "  ".repeat(file.components().count() - 1);
-                format!(
-                    "| {}{}",
-                    indentation,
-                    file.file_name().unwrap().to_str().unwrap()
-                )
+        let walk = glob.walk(&base_dir).flatten();
+        let entries: Vec<String> = walk
+            .filter_map(|entry| {
+                let file = entry
+                    .path()
+                    .strip_prefix(&base_dir)
+                    .expect("Valid file path");
+                let indentation = "  ".repeat(file.components().count().saturating_sub(1));
+                file.file_name().map(|filename| {
+                    format!(
+                        "| {}{}",
+                        indentation,
+                        filename.to_str().expect("Valid filename utf8")
+                    )
+                })
             })
             .collect();
         entries.join("\n")
