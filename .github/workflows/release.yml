@@ -106,35 +106,25 @@ jobs:
         with:
           name: release
           path: build-artifacts
-      - name: Build Changelog
+      - name: Build CHANGELOG
         run: |
           node ./.backstage/changelog.cjs write
+          echo CHANGELOG="$(base64 -i CHANGELOG.md)" >> $GITHUB_ENV
+          echo SHA="$( git rev-parse main:CHANGELOG.md )" >> $GITHUB_ENV
 
-      - name: Commit changes
+      - name: Commit new CHANGELOG
+        uses: octokit/request-action@v2.x
+        id: push_changes
+        with:
+          route: PUT /repos/{owner}/{repo}/contents/CHANGELOG.md
+          owner: cloudcannon
+          repo: humane
+          branch: main
+          message: Changelog for ${{ env.GIT_VERSION }}
+          sha: ${{ env.SHA }}
+          content: ${{ env.CHANGELOG }}
         env:
           GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
-          GIT_VERSION: ${{ env.GIT_VERSION }}
-          FILE_TO_COMMIT: CHANGELOG.md
-          DESTINATION_BRANCH: main
-        run: |
-          export MESSAGE="Changelog for $GIT_VERSION"
-          export SHA=$( git rev-parse $DESTINATION_BRANCH:$FILE_TO_COMMIT )
-          gh api --method PUT /repos/cloudcannon/humane/contents/$FILE_TO_COMMIT \
-            --field message="$MESSAGE" \
-            --field content=@<( base64 -i $FILE_TO_COMMIT ) \  
-            --field branch="$DESTINATION_BRANCH" \
-            --field sha="$SHA"
-
-      # - uses: octokit/request-action@v2.x
-      #   id: push_changes
-      #   with:
-      #     route: PUT /repos/{owner}/{repo}/contents/CHANGELOG.md
-      #     owner: cloudcannon
-      #     repo: humane
-      #     branch: main
-      #     message: Changelog for ${{ env.GIT_VERSION }}
-      #   env:
-      #     GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
 
       - name: Release
         uses: softprops/action-gh-release@v1
