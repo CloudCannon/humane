@@ -113,7 +113,11 @@ jobs:
           git config user.name "cloudcannon-oss[bot]"
           git add ./CHANGELOG.md
           git commit -m "Changelog for $GIT_VERSION"
-          git push --force-with-lease
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ steps.get_workflow_token.outputs.token }}
+          branch: main
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
