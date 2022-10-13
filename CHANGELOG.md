@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.4.0 (October 13, 2022)
+
 * Release on M1
 
 ## v0.3.29 (October 12, 2022)
