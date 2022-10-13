@@ -149,23 +149,26 @@ jobs:
             rust: stable
             target: x86_64-pc-windows-msvc
             cross: false
+            run_tests: true
           - build: linux
             os: ubuntu-latest
             rust: stable
             target: x86_64-unknown-linux-musl
             cross: false
+            run_tests: true
             musl: true
           - build: macos
             os: macos-latest
             rust: stable
             target: x86_64-apple-darwin
             cross: false
+            run_tests: true
           - build: macos-m1
             os: macos-latest
             rust: stable
             target: aarch64-apple-darwin
             cross: false
-            m1: true
+            run_tests: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -210,13 +213,6 @@ jobs:
           rustup target add ${{ matrix.target }}
           rustup show
 
-      - name: Set SDKROOT
-        if: matrix.m1
-        run: echo "SDKROOT=$(xcrun -sdk macosx11.1 --show-sdk-path)" >> $GITHUB_ENV
-      - name: Set MACOSX_DEPLOYMENT_TARGET
-        if: matrix.m1
-        run: echo "MACOSX_DEPLOYMENT_TARGET=$(xcrun -sdk macosx11.1 --show-sdk-platform-version)" >> $GITHUB_ENV
-
       - name: Install Chrome
         uses: browser-actions/setup-chrome@latest
 
@@ -240,6 +236,7 @@ jobs:
         run: RELEASE_VERSION=${GITHUB_REF#refs/tags/} cargo build --release --target ${{ matrix.target }}
 
       - name: Test Lib
+        if: matrix.run_tests
         working-directory: ./humane
         run: cargo run --release --target ${{ matrix.target }}
 

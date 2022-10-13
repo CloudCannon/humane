@@ -35,8 +35,6 @@ async function getTarget() {
 
     switch (os.platform()) {
         case 'darwin':
-            return 'x86_64-apple-darwin';
-            // TODO: Waiting for GitHub actions to build on M1.
             return arch === 'arm64' ? 'aarch64-apple-darwin' :
                 'x86_64-apple-darwin';
         case 'win32':
