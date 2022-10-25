@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* No changes. Testing release workflows.
+
 ## v0.4.0 (October 13, 2022)
 
 * Release on M1
