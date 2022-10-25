@@ -126,7 +126,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.get_workflow_token.outputs.token }}
       - name: Release documentation branch
         uses: octokit/request-action@v2.x
-        id: push_changes
+        id: merge_docs
         with:
           route: PUT /repos/{owner}/{repo}/merges
           owner: cloudcannon
