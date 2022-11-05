@@ -79,12 +79,19 @@ impl Civilization {
         tmp_dir.join(PathBuf::from(filename))
     }
 
-    fn write_file(&mut self, filename: &str, contents: &str) {
+    fn write_file(&mut self, filename: &str, contents: &str, gzipped: bool) {
         let file_path = self.tmp_file_path(filename);
         fs::create_dir_all(file_path.parent().unwrap()).unwrap();
 
         let mut file = std::fs::File::create(&file_path).unwrap();
-        file.write_all(contents.as_bytes()).unwrap();
+        if gzipped {
+            let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
+            gz.write_all(contents.as_bytes()).expect("Gzip failed");
+            file.write_all(&gz.finish().expect("Gzip failed"))
+                .expect("Write failed");
+        } else {
+            file.write_all(contents.as_bytes()).unwrap();
+        }
     }
 
     fn read_file(&mut self, filename: &str) -> String {

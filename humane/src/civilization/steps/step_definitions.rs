@@ -16,24 +16,24 @@ use crate::civilization::Civilization;
 
 #[given(regex = "^I have an? (?:\"|')(.*)(?:\"|') file$")]
 fn new_empty_file(world: &mut Civilization, filename: String) {
-    world.write_file(&filename, "");
+    world.write_file(&filename, "", false);
 }
 
-#[given(regex = "^I have an? (?:\"|')(.*)(?:\"|') file with the content:$")]
-fn new_file(world: &mut Civilization, step: &Step, filename: String) {
+#[given(regex = "^I have an? (gzipped )?(?:\"|')(.*)(?:\"|') file with the content:$")]
+fn new_file(world: &mut Civilization, gzipped: Gzipped, step: &Step, filename: String) {
     match &step.docstring {
         Some(contents) => {
-            world.write_file(&filename, contents);
+            world.write_file(&filename, contents, gzipped.0);
         }
         None => panic!("`{}` step expected a docstring", step.value),
     }
 }
 
-#[given(regex = "^I have an? (?:\"|')(.*)(?:\"|') file with the body:$")]
-fn new_templated_file(world: &mut Civilization, step: &Step, filename: String) {
+#[given(regex = "^I have an? (gzipped )?(?:\"|')(.*)(?:\"|') file with the body:$")]
+fn new_templated_file(world: &mut Civilization, gzipped: Gzipped, step: &Step, filename: String) {
     match &step.docstring {
         Some(contents) => {
-            world.write_file(&filename, &template_file(contents));
+            world.write_file(&filename, &template_file(contents), gzipped.0);
         }
         None => panic!("`{}` step expected a docstring", step.value),
     }
@@ -359,6 +359,18 @@ impl FromStr for Not {
         match s {
             "not " => Ok(Not(true)),
             _ => Ok(Not(false)),
+        }
+    }
+}
+
+struct Gzipped(bool);
+
+impl FromStr for Gzipped {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "gzipped " => Ok(Gzipped(true)),
+            _ => Ok(Gzipped(false)),
         }
     }
 }
