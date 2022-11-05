@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+* Support writing gzipped files to disk
+
 ## v0.4.4 (October 26, 2022)
 
 * No changes. Testing release workflows.
