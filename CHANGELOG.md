@@ -9,6 +9,10 @@
 
 ## Unreleased
 
+## v0.6.0 (November 12, 2022)
+
+* Add {{humane_temp_dir}} substitution in program flags
+
 ## v0.5.0 (November 5, 2022)
 
 * Support writing gzipped files to disk
