@@ -165,7 +165,20 @@ impl Civilization {
             panic!("No binary supplied — please provide a TEST_BINARY environment variable");
         });
 
-        let cli = build_command(&binary, None, options);
+        let tmp_dir = if self.tmp_dir.is_some() {
+            Some(self.tmp_dir().to_str().expect("Invalid utf-8").to_string())
+        } else {
+            None
+        };
+        let process_value = |str: &str| {
+            if str.contains("{{humane_temp_dir}}") {
+                str.replace("{{humane_temp_dir}}", tmp_dir.as_ref().expect("No tmp dir"))
+            } else {
+                str.to_string()
+            }
+        };
+
+        let cli = build_command(&binary, None, options, process_value);
         let mut command = Command::new("sh");
         command
             .arg("-c")
@@ -207,7 +220,12 @@ impl BinaryCommand {
     }
 }
 
-fn build_command(binary: &str, subcommand: Option<&str>, options: Option<&Table>) -> String {
+fn build_command<F: Fn(&str) -> String>(
+    binary: &str,
+    subcommand: Option<&str>,
+    options: Option<&Table>,
+    process: F,
+) -> String {
     let cwd = std::env::current_dir().unwrap();
     let binary_path = cwd.join(PathBuf::from(binary));
     let binary_path = binary_path.to_str().unwrap();
@@ -219,7 +237,7 @@ fn build_command(binary: &str, subcommand: Option<&str>, options: Option<&Table>
 
     if let Some(options) = options {
         for row in &options.rows {
-            command.add_flag(&row[0]);
+            command.add_flag(&process(&row[0]));
         }
     }
 
