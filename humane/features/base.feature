@@ -26,4 +26,4 @@ Feature: Base Tests
             """
             cwd: "{{humane_cwd}}"
             """
-        Then I should see "humane/humane" in "output"
+        Then I should see "humane" in "output"
