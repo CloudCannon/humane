@@ -20,3 +20,10 @@ Feature: Base Tests
             """
         When I run "ls {{humane_temp_dir}}"
         Then I should see "peachy" in stdout
+
+    Scenario: Files get substitutions
+        Given I have an "output" file with the content:
+            """
+            cwd: "{{humane_cwd}}"
+            """
+        Then I should see "humane/humane" in "output"
