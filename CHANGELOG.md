@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.8.0 (April 13, 2023)
+
 * Run substitutions when writing files
 
 ## v0.7.0 (April 13, 2023)
