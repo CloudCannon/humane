@@ -83,6 +83,8 @@ impl Civilization {
         let file_path = self.tmp_file_path(filename);
         fs::create_dir_all(file_path.parent().unwrap()).unwrap();
 
+        let contents = self.process_substitutions(contents);
+
         let mut file = std::fs::File::create(&file_path).unwrap();
         if gzipped {
             let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::best());
