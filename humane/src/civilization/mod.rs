@@ -160,30 +160,41 @@ impl Civilization {
         }
     }
 
+    fn process_substitutions<S: AsRef<str>>(&mut self, str: S) -> String {
+        let result = str
+            .as_ref()
+            .replace(
+                "{{humane_cwd}}",
+                std::env::current_dir()
+                    .unwrap()
+                    .to_str()
+                    .expect("Current dir should be utf-8"),
+            )
+            .replace(
+                "{{humane_temp_dir}}",
+                self.tmp_dir().to_str().expect("Invalid utf-8"),
+            );
+
+        result
+    }
+
     fn run_command(&mut self, options: Option<&Table>) {
         let binary = std::env::var("TEST_BINARY").unwrap_or_else(|_| {
             panic!("No binary supplied — please provide a TEST_BINARY environment variable");
         });
 
-        let tmp_dir = if self.tmp_dir.is_some() {
-            Some(self.tmp_dir().to_str().expect("Invalid utf-8").to_string())
-        } else {
-            None
-        };
-        let process_value = |str: &str| {
-            if str.contains("{{humane_temp_dir}}") {
-                str.replace("{{humane_temp_dir}}", tmp_dir.as_ref().expect("No tmp dir"))
-            } else {
-                str.to_string()
-            }
-        };
+        let cli = build_command(&binary, None, options);
+        self.run_custom(cli);
+    }
 
-        let cli = build_command(&binary, None, options, process_value);
+    fn run_custom<S: AsRef<str>>(&mut self, cmd: S) {
+        let processed_cmd = self.process_substitutions(cmd);
+
         let mut command = Command::new("sh");
         command
             .arg("-c")
             .current_dir(self.tmp_dir())
-            .arg(&cli.replace(std::path::MAIN_SEPARATOR, "/"));
+            .arg(&processed_cmd.replace(std::path::MAIN_SEPARATOR, "/"));
 
         for (key, val) in &self.env_vars {
             command.env(key, val);
@@ -220,12 +231,7 @@ impl BinaryCommand {
     }
 }
 
-fn build_command<F: Fn(&str) -> String>(
-    binary: &str,
-    subcommand: Option<&str>,
-    options: Option<&Table>,
-    process: F,
-) -> String {
+fn build_command(binary: &str, subcommand: Option<&str>, options: Option<&Table>) -> String {
     let cwd = std::env::current_dir().unwrap();
     let binary_path = cwd.join(PathBuf::from(binary));
     let binary_path = binary_path.to_str().unwrap();
@@ -237,7 +243,7 @@ fn build_command<F: Fn(&str) -> String>(
 
     if let Some(options) = options {
         for row in &options.rows {
-            command.add_flag(&process(&row[0]));
+            command.add_flag(&row[0]);
         }
     }
 

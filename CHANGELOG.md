@@ -9,6 +9,11 @@
 
 ## Unreleased
 
+## v0.7.0 (April 13, 2023)
+
+* Add `I run "command"` step definition
+* Add `{{humane_cwd}}` substitution to commands
+
 ## v0.6.0 (November 12, 2022)
 
 * Add {{humane_temp_dir}} substitution in program flags

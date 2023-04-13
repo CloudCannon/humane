@@ -52,18 +52,23 @@ fn new_env_vars(world: &mut Civilization, step: &Step) {
 // BINARY WHENS
 
 #[when(regex = "^I run my program$")]
-fn run_rosey(world: &mut Civilization) {
+fn run_program(world: &mut Civilization) {
     world.run_command(None);
 }
 
 #[when(regex = "^I run my program with the flags:$")]
-fn run_rosey_with_options(world: &mut Civilization, step: &Step) {
+fn run_program_with_options(world: &mut Civilization, step: &Step) {
     match &step.table {
         Some(table) => {
             world.run_command(Some(table));
         }
         None => panic!("`{}` step expected a table", step.value),
     }
+}
+
+#[when(regex = "^I run (?:\"|')(.*)(?:\"|')$")]
+fn run_custom(world: &mut Civilization, cmd: String) {
+    world.run_custom(cmd);
 }
 
 // THENS
