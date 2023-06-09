@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.9.0 (June 9, 2023)
+
 * Add `@platform-*` tags that can target scenarios to `linux`, `macos`, `unix`, or `windows`
 
 ## v0.8.0 (April 13, 2023)
