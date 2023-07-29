@@ -22,7 +22,7 @@ kuchiki = "0.8.1"
 lol_html = "0.3"
 serde_json = "1"
 serde = { version = "1", features = ["derive"] }
-twelf = { version = "0.7", default-features = false, features = [
+twelf = { version = "0.10", default-features = false, features = [
     "env",
     "clap",
     "json",
