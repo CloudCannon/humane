@@ -27,4 +27,4 @@ The `TEST_BINARY` environment variable is used for the step `When I run my progr
 
 ## Steps
 
-The steps are not currently documented — skimming this source code will give insight, or the best resource is Pagefind's integration test directory, which contains extensive use of the steps. 
+The steps are not currently documented — skimming this source code will give insight, or the best resource is [Pagefind's integration test directory](https://github.com/CloudCannon/pagefind/tree/main/pagefind/features), which contains extensive use of the steps. 
