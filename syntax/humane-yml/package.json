@@ -1,6 +1,11 @@
 {
   "name": "humane-yml",
   "displayName": "humane_yml",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CloudCannon/humane/"
+  },
+  "publisher": "cc-oss",
   "description": "Syntax highlighting for Humane's YML testing format",
   "version": "0.0.1",
   "engines": {
