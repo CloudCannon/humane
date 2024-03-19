@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::{collections::HashMap, path::PathBuf, time::Instant};
 
 use futures::stream::StreamExt;
@@ -6,10 +7,12 @@ use instructions::HumaneSegments;
 use tokio::fs::read_to_string;
 use wax::Glob;
 
+use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
 use crate::instructions::register_instructions;
 use crate::{parser::parse_file, runner::run_humane_experiment, writer::write_yaml_snapshots};
 
 mod civilization;
+mod errors;
 mod instructions;
 mod parser;
 mod runner;
@@ -26,16 +29,29 @@ pub struct HumaneTestFile {
 pub enum HumaneTestStep {
     Ref {
         other_file: PathBuf,
+        orig: String,
     },
     Step {
         step: HumaneSegments,
         args: HashMap<String, serde_json::Value>,
+        orig: String,
     },
     Snapshot {
         snapshot: HumaneSegments,
         snapshot_content: Option<String>,
         args: HashMap<String, serde_json::Value>,
+        orig: String,
     },
+}
+
+impl Display for HumaneTestStep {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use HumaneTestStep::*;
+
+        match self {
+            Ref { orig, .. } | Step { orig, .. } | Snapshot { orig, .. } => write!(f, "{}", orig),
+        }
+    }
 }
 
 #[tokio::main]
@@ -98,21 +114,29 @@ async fn main() {
 
     let mut humanity = FuturesUnordered::new();
 
+    let handle_res = |(file, res): (&HumaneTestFile, Result<(), HumaneTestError>)| match res {
+        Ok(h) => println!("----> Test succeeded: {}", file.test),
+        Err(e) => eprintln!("!!!!> Test {} failed:\n{e}", file.test),
+    };
+
     for test_file in all_tests.values() {
-        humanity.push(run_humane_experiment(
-            test_file,
-            &all_tests,
-            &all_instructions,
-        ));
+        humanity.push(async {
+            (
+                &*test_file,
+                run_humane_experiment(test_file, &all_tests, &all_instructions).await,
+            )
+        });
 
         // TODO: Wire up to concurrency option
         if humanity.len() == 10 {
-            humanity.next().await;
+            if let Some(res) = humanity.next().await {
+                handle_res(res);
+            }
         }
     }
 
-    while let Some(_) = humanity.next().await {
-        // waiting for resolves
+    while let Some(res) = humanity.next().await {
+        handle_res(res);
     }
 
     return;
@@ -151,6 +175,7 @@ async fn main() {
                 snapshot,
                 snapshot_content,
                 args,
+                orig,
             } => {
                 *snapshot_content = Some("Wahoooo\nmy snapshot content\ngoes here!!".to_string());
             }

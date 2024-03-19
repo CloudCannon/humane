@@ -1,9 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use anyhow::bail;
 use serde_json::{Map, Value};
 
 use crate::{
+    errors::HumaneInputError,
     instructions::{HumaneSegment, HumaneSegments},
     HumaneTestFile, HumaneTestStep,
 };
@@ -35,7 +35,7 @@ enum RawHumaneTestStep {
 }
 
 impl TryFrom<RawHumaneTestFile> for HumaneTestFile {
-    type Error = anyhow::Error;
+    type Error = HumaneInputError;
 
     fn try_from(value: RawHumaneTestFile) -> Result<Self, Self::Error> {
         let mut setup = Vec::with_capacity(value.setup.len());
@@ -57,37 +57,45 @@ impl TryFrom<RawHumaneTestFile> for HumaneTestFile {
 }
 
 impl TryFrom<RawHumaneTestStep> for HumaneTestStep {
-    type Error = anyhow::Error;
+    type Error = HumaneInputError;
 
     fn try_from(value: RawHumaneTestStep) -> Result<Self, Self::Error> {
         match value {
             RawHumaneTestStep::Ref { r#ref } => Ok(HumaneTestStep::Ref {
-                other_file: PathBuf::try_from(r#ref)?,
+                other_file: PathBuf::try_from(&r#ref).map_err(|_| {
+                    HumaneInputError::InvalidPath {
+                        input: r#ref.clone(),
+                    }
+                })?,
+                orig: r#ref,
             }),
             RawHumaneTestStep::BareStep(step) => Ok(HumaneTestStep::Step {
                 step: parse_instruction(&step)?,
                 args: HashMap::new(),
+                orig: step,
             }),
             RawHumaneTestStep::StepWithParams { step, other } => Ok(HumaneTestStep::Step {
                 step: parse_instruction(&step)?,
                 args: HashMap::from_iter(other.into_iter()),
+                orig: step,
             }),
             RawHumaneTestStep::Snapshot { snapshot, other } => Ok(HumaneTestStep::Snapshot {
                 snapshot: parse_instruction(&snapshot)?,
                 snapshot_content: None,
                 args: HashMap::from_iter(other.into_iter()),
+                orig: snapshot,
             }),
         }
     }
 }
 
-pub fn parse_file(s: &str) -> Result<HumaneTestFile, anyhow::Error> {
+pub fn parse_file(s: &str) -> Result<HumaneTestFile, HumaneInputError> {
     let raw_test = serde_yaml::from_str::<RawHumaneTestFile>(s)?;
 
     raw_test.try_into()
 }
 
-pub fn parse_instruction(s: &str) -> Result<HumaneSegments, anyhow::Error> {
+pub fn parse_instruction(s: &str) -> Result<HumaneSegments, HumaneInputError> {
     let mut segments = vec![];
     use HumaneSegment::*;
 
@@ -120,9 +128,11 @@ pub fn parse_instruction(s: &str) -> Result<HumaneSegments, anyhow::Error> {
                 c if c == *quote => {
                     let inner_start = *start + 1;
                     if i == inner_start {
-                        segments.push(Value("".to_string()));
+                        segments.push(Value(serde_json::Value::String("".to_string())));
                     } else {
-                        segments.push(Value(s[inner_start..i].to_string()));
+                        segments.push(Value(serde_json::Value::String(
+                            s[inner_start..i].to_string(),
+                        )));
                     }
                     mode = InstMode::None(i + 1);
                 }
@@ -149,8 +159,8 @@ pub fn parse_instruction(s: &str) -> Result<HumaneSegments, anyhow::Error> {
                 segments.push(Literal(s[start..].to_string()));
             }
         }
-        InstMode::InQuote(_, q) => bail!("Quoted value was not closed, expected {q}"),
-        InstMode::InCurly(_) => bail!("Variable was not closed, expected }}"),
+        InstMode::InQuote(_, q) => return Err(HumaneInputError::UnclosedValue { expected: q }),
+        InstMode::InCurly(_) => return Err(HumaneInputError::UnclosedValue { expected: '}' }),
     }
 
     Ok(HumaneSegments { segments })
@@ -160,6 +170,10 @@ pub fn parse_instruction(s: &str) -> Result<HumaneSegments, anyhow::Error> {
 mod test {
     use super::*;
     use HumaneSegment::*;
+
+    fn st(s: &str) -> serde_json::Value {
+        serde_json::Value::String(s.to_string())
+    }
 
     #[test]
     fn test_parsing_instructions() {
@@ -177,9 +191,9 @@ mod test {
             instruction.segments,
             vec![
                 Literal("I have a ".to_string()),
-                Value("public/cat/'index'.html".to_string()),
+                Value(st("public/cat/'index'.html")),
                 Literal(" file with the body ".to_string()),
-                Value("<h1>Happy post about \"cats</h1>".to_string())
+                Value(st("<h1>Happy post about \"cats</h1>"))
             ]
         );
 
@@ -189,11 +203,11 @@ mod test {
             instruction.segments,
             vec![
                 Literal("In my browser, ".to_string()),
-                Value("".to_string()),
+                Value(st("")),
                 Literal("I eval ".to_string()),
                 Variable("j\"s".to_string()),
                 Literal(" and ".to_string()),
-                Value("x".to_string()),
+                Value(st("x")),
             ]
         );
     }

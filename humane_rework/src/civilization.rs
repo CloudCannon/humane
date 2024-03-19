@@ -14,19 +14,19 @@ use tokio::task::JoinHandle;
 use wax::Glob;
 
 #[derive(Debug)]
-struct CommandOutput {
-    stdout: String,
-    stderr: String,
+pub struct CommandOutput {
+    pub stdout: String,
+    pub stderr: String,
 }
 
 #[derive(Debug)]
 pub struct Civilization {
-    tmp_dir: Option<tempfile::TempDir>,
-    last_command_output: Option<CommandOutput>,
-    assigned_server_port: Option<u16>,
-    threads: Vec<JoinHandle<Result<(), std::io::Error>>>,
-    handles: Vec<ServerHandle>,
-    env_vars: HashMap<String, String>,
+    pub tmp_dir: Option<tempfile::TempDir>,
+    pub last_command_output: Option<CommandOutput>,
+    pub assigned_server_port: Option<u16>,
+    pub threads: Vec<JoinHandle<Result<(), std::io::Error>>>,
+    pub handles: Vec<ServerHandle>,
+    pub env_vars: HashMap<String, String>,
 }
 
 impl Civilization {

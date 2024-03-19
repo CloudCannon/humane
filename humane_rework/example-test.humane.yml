@@ -7,7 +7,7 @@ setup:
 steps:
   - I have a "public/cat/index.html" file with the content "<h1>Happy post about cats</h1>"
   - step: I have a "public/dog/index.html" file with the content {html}
-    html: |-
+    htm: |-
       <h1>A post about how cats do not like dogs</h1>
       <p>More content</p>
 

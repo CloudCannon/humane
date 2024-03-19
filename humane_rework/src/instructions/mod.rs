@@ -1,15 +1,17 @@
 use std::{collections::HashMap, hash::Hash};
 
-use anyhow::Context;
-
-use crate::{civilization::Civilization, parser::parse_instruction};
+use crate::{
+    civilization::Civilization,
+    errors::{HumaneInputError, HumaneStepError},
+    parser::parse_instruction,
+};
 
 mod filesystem;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HumaneSegment {
     Literal(String),
-    Value(String),
+    Value(serde_json::Value),
     Variable(String),
 }
 
@@ -53,23 +55,77 @@ impl Eq for HumaneSegments {}
 
 pub trait HumaneInstruction: Sync {
     fn instruction(&self) -> &'static str;
-    fn run(&self, args: &InstructionArgs, civ: &mut Civilization) -> Result<(), anyhow::Error>;
+    fn run(&self, args: &InstructionArgs, civ: &mut Civilization) -> Result<(), HumaneStepError>;
 }
 
 inventory::collect!(&'static dyn HumaneInstruction);
 
-pub struct InstructionArgs {
-    args: HashMap<String, serde_json::Value>,
+pub struct InstructionArgs<'a> {
+    args: HashMap<String, &'a serde_json::Value>,
 }
 
-impl InstructionArgs {
-    fn get_str(&self, k: impl AsRef<str>) -> Result<&str, anyhow::Error> {
-        Ok(self
-            .args
-            .get(k.as_ref())
-            .context("argument not provided")?
-            .as_str()
-            .context("provided argument was not a string")?)
+impl<'a> InstructionArgs<'a> {
+    pub fn build(
+        reference_instruction: &HumaneSegments,
+        supplied_instruction: &'a HumaneSegments,
+        supplied_args: &'a HashMap<String, serde_json::Value>,
+    ) -> Result<InstructionArgs<'a>, HumaneInputError> {
+        let mut args = HashMap::new();
+
+        for (reference, supplied) in reference_instruction
+            .segments
+            .iter()
+            .zip(supplied_instruction.segments.iter())
+        {
+            let HumaneSegment::Variable(inst_key) = reference else {
+                continue;
+            };
+
+            match supplied {
+                HumaneSegment::Value(val) => {
+                    args.insert(inst_key.to_owned(), val);
+                }
+                HumaneSegment::Variable(var) => {
+                    let Some(var_val) = supplied_args.get(var) else {
+                        return Err(HumaneInputError::NonexistentArgument {
+                            arg: var.to_string(),
+                            has: supplied_args.keys().cloned().collect::<Vec<_>>().join(", "),
+                        });
+                    };
+                    args.insert(inst_key.to_owned(), var_val);
+                }
+                HumaneSegment::Literal(l) => panic!("{l} should be unreachable"),
+            }
+        }
+
+        Ok(Self { args })
+    }
+
+    fn get_str(&self, k: impl AsRef<str>) -> Result<&str, HumaneInputError> {
+        let Some(value) = self.args.get(k.as_ref()) else {
+            return Err(HumaneInputError::NonexistentArgument {
+                arg: k.as_ref().to_string(),
+                has: self.args.keys().cloned().collect::<Vec<_>>().join(", "),
+            });
+        };
+
+        let Some(str) = value.as_str() else {
+            let found = match value {
+                serde_json::Value::Null => "null",
+                serde_json::Value::Bool(_) => "boolean",
+                serde_json::Value::Number(_) => "number",
+                serde_json::Value::Array(_) => "array",
+                serde_json::Value::Object(_) => "object",
+                serde_json::Value::String(_) => unreachable!(),
+            };
+            return Err(HumaneInputError::IncorrectArgumentType {
+                arg: k.as_ref().to_string(),
+                was: found.to_string(),
+                expected: "string".to_string(),
+            });
+        };
+
+        Ok(str)
     }
 }
 
@@ -89,6 +145,26 @@ pub fn register_instructions() -> HashMap<HumaneSegments, &'static dyn HumaneIns
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_building_args() {
+        let instruction_def = parse_instruction("I have a {name} file with the contents {var}")
+            .expect("Valid instruction");
+
+        let user_instruction =
+            parse_instruction("I have a \"index.html\" file with the contents ':)'")
+                .expect("Valid instruction");
+
+        let input = HashMap::new();
+
+        let args = InstructionArgs::build(&instruction_def, &user_instruction, &input)
+            .expect("Args built successfully");
+
+        let Ok(str) = args.get_str("name") else {
+            panic!("Argument was not a string, got {:?}", args.get_str("name"));
+        };
+        assert_eq!(str, "index.html");
+    }
 
     // Instructions should alias to each other regardless of the contents of their
     // variables or values.
@@ -131,7 +207,7 @@ mod test {
                 &self,
                 args: &InstructionArgs,
                 civ: &mut Civilization,
-            ) -> Result<(), anyhow::Error> {
+            ) -> Result<(), HumaneStepError> {
                 Ok(())
             }
         }

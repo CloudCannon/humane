@@ -1,4 +1,3 @@
-use anyhow::Context;
 use nondestructive::yaml;
 
 use crate::{HumaneTestFile, HumaneTestStep};
@@ -12,6 +11,7 @@ pub fn write_yaml_snapshots(input_doc: &str, hydrated_file: &HumaneTestFile) -> 
                 snapshot,
                 snapshot_content,
                 args,
+                orig,
             } => {
                 let Some(snapshot_content) = snapshot_content else {
                     continue;

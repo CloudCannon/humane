@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use anyhow::{bail, Context};
-
 use crate::civilization::Civilization;
 
 use super::{HumaneInstruction, InstructionArgs};
 
 mod new_file {
+    use crate::errors::{HumaneInputError, HumaneStepError};
+
     use super::*;
 
     pub struct NewFile;
@@ -20,10 +20,17 @@ mod new_file {
             "I have a {filename} file with the content {contents}"
         }
 
-        fn run(&self, args: &InstructionArgs, civ: &mut Civilization) -> Result<(), anyhow::Error> {
+        fn run(
+            &self,
+            args: &InstructionArgs,
+            civ: &mut Civilization,
+        ) -> Result<(), HumaneStepError> {
             let filename = args.get_str("filename")?;
             if filename.is_empty() {
-                bail!("provided filename is empty");
+                return Err(HumaneInputError::ArgumentRequiresValue {
+                    arg: "filename".to_string(),
+                }
+                .into());
             }
 
             let contents = args.get_str("contents")?;
