@@ -23,7 +23,7 @@
       "name": "entity.other.document.end.yaml"
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?html):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?html):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -44,7 +44,7 @@
       ]
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?md):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?md):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -65,7 +65,7 @@
       ]
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?shell):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?shell):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -86,7 +86,7 @@
       ]
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?js):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?js):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -107,7 +107,7 @@
       ]
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?ts):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?ts):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -128,7 +128,7 @@
       ]
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?yml):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?yml):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -149,7 +149,7 @@
       ]
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?yaml):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?yaml):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -170,7 +170,7 @@
       ]
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?toml):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?toml):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -191,7 +191,7 @@
       ]
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?json):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?json):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -212,7 +212,7 @@
       ]
     },
     {
-      "begin": "(^\\s*)((?:\\w+_)?css):[\\s]*(>)(-)[\\s]*\\n",
+      "begin": "(^\\s*)((?:\\w+_)?css):[\\s]*(>|\\|)(-)?[\\s]*\\n",
       "beginCaptures": {
         "2": {
           "name": "entity.name.tag.yaml"
@@ -292,7 +292,7 @@
           }
         },
         {
-          "match": "(\\{\\{[^\\]]*\\}\\})",
+          "match": "(\\{[^\\]]*\\})",
           "captures": {
             "1": {
               "name": "string.quoted.double"

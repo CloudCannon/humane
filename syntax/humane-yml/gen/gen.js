@@ -42,7 +42,7 @@ const humaneLanguagePattern = (lang, assignment) => {
     assignment = `source.${lang}`;
   }
   return {
-    begin: `(^\\s*)((?:\\w+_)?${lang}):[\\s]*(>)(-)[\\s]*\\n`,
+    begin: `(^\\s*)((?:\\w+_)?${lang}):[\\s]*(>|\\|)(-)?[\\s]*\\n`,
     beginCaptures: {
       2: {
         name: "entity.name.tag.yaml",
@@ -130,7 +130,7 @@ const humaneStepPatterns = [
         },
       },
       {
-        match: "(\\{\\{[^\\]]*\\}\\})",
+        match: "(\\{[^\\]]*\\})",
         captures: {
           1: {
             name: "string.quoted.double",

@@ -1,13 +1,13 @@
 {
   "name": "humane-yml",
-  "displayName": "humane_yml",
+  "displayName": "Humane YAML Testing Syntax",
   "repository": {
     "type": "git",
     "url": "https://github.com/CloudCannon/humane/"
   },
   "publisher": "cc-oss",
-  "description": "Syntax highlighting for Humane's YML testing format",
-  "version": "0.0.1",
+  "description": "Syntax highlighting for Humane's YAML testing format",
+  "version": "0.0.5",
   "engines": {
     "vscode": "^1.87.0"
   },
@@ -23,9 +23,9 @@
           "Humane YAML",
           "humane-yaml"
         ],
-        "filenames": [
-          ".humane-yml",
-          ".humane-yaml"
+        "extensions": [
+          "humane.yml",
+          "humane.yaml"
         ],
         "configuration": "./language-configuration.json"
       }
