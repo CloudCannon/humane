@@ -49,8 +49,10 @@ async fn run_humane_steps(
             } => {
                 let Some((reference_segments, instruction)) = instructions.get_key_value(step)
                 else {
-                    println!("Couldn't find instruction for {step:?}");
-                    continue;
+                    return Err(HumaneTestError {
+                        err: HumaneStepError::External(HumaneInputError::NonexistentStep),
+                        step: cur_step.clone(),
+                    });
                 };
 
                 println!("Found an instruction!: {}", instruction.instruction());

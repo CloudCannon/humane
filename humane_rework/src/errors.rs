@@ -22,6 +22,8 @@ pub enum HumaneInputError {
     UnclosedValue { expected: char },
     #[error("invalid path: {input}")]
     InvalidPath { input: String },
+    #[error("step does not exist")]
+    NonexistentStep,
 }
 
 #[derive(Error, Debug)]

@@ -4,11 +4,13 @@ use std::{collections::HashMap, path::PathBuf, time::Instant};
 use futures::stream::StreamExt;
 use futures::{future::join_all, stream::FuturesUnordered};
 use instructions::HumaneSegments;
+use similar_string::find_best_similarity;
 use tokio::fs::read_to_string;
 use wax::Glob;
 
 use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
 use crate::instructions::register_instructions;
+use crate::parser::parse_instruction;
 use crate::{parser::parse_file, runner::run_humane_experiment, writer::write_yaml_snapshots};
 
 mod civilization;
@@ -112,11 +114,47 @@ async fn main() {
 
     let all_instructions = register_instructions();
 
+    let instruction_comparisons: Vec<_> = all_instructions
+        .keys()
+        .map(|k| k.get_comparison_string())
+        .collect();
+
     let mut humanity = FuturesUnordered::new();
 
     let handle_res = |(file, res): (&HumaneTestFile, Result<(), HumaneTestError>)| match res {
         Ok(h) => println!("----> Test succeeded: {}", file.test),
-        Err(e) => eprintln!("!!!!> Test {} failed:\n{e}", file.test),
+        Err(e) => match &e.err {
+            HumaneStepError::External(ex) => match ex {
+                errors::HumaneInputError::NonexistentStep => match e.step {
+                    HumaneTestStep::Ref { other_file, orig } => todo!(),
+                    HumaneTestStep::Step { step, args, orig } => {
+                        let instruction_comparator = step.get_comparison_string();
+                        let (best_match, _) =
+                            find_best_similarity(&instruction_comparator, &instruction_comparisons)
+                                .expect("Some instructions should exist");
+                        let parsed = parse_instruction(&best_match)
+                            .expect("strings were serialized so shoudl always parse");
+
+                        let (actual_instruction, _) = all_instructions
+                            .get_key_value(&parsed)
+                            .expect("should exist in the global set");
+
+                        eprintln!(
+                            "Step \"{orig}\" was not found.\nLooked for \"{instruction_comparator}\"\nClosest matching step: \"{}\"",
+                            actual_instruction.get_as_string()
+                        );
+                    }
+                    HumaneTestStep::Snapshot {
+                        snapshot,
+                        snapshot_content,
+                        args,
+                        orig,
+                    } => todo!(),
+                },
+                _ => eprintln!("!!!!> Test {} failed:\n{e}", file.test),
+            },
+            _ => eprintln!("!!!!> Test {} failed:\n{e}", file.test),
+        },
     };
 
     for test_file in all_tests.values() {

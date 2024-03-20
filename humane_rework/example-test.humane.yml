@@ -2,12 +2,12 @@ test: Exact Phrase Matching
 
 setup:
   - ref: ../base-vars.humane.yml
-  - I have a "public/index.html" file with the content "<p>Hello World</p>"
+  - I have a "public/index.html" file with the contents "<p>Hello World</p>"
 
 steps:
   - I have a "public/cat/index.html" file with the content "<h1>Happy post about cats</h1>"
   - step: I have a "public/dog/index.html" file with the content {html}
-    htm: |-
+    html: |-
       <h1>A post about how cats do not like dogs</h1>
       <p>More content</p>
 

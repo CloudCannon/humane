@@ -53,6 +53,33 @@ impl PartialEq for HumaneSegments {
 
 impl Eq for HumaneSegments {}
 
+impl HumaneSegments {
+    pub fn get_comparison_string(&self) -> String {
+        use HumaneSegment::*;
+
+        self.segments
+            .iter()
+            .map(|s| match s {
+                Literal(l) => l,
+                Value(_) | Variable(_) => "{___}",
+            })
+            .collect()
+    }
+
+    pub fn get_as_string(&self) -> String {
+        use HumaneSegment::*;
+
+        self.segments
+            .iter()
+            .map(|s| match s {
+                Literal(l) => l.clone(),
+                Value(val) => format!("\"{val}\""),
+                Variable(var) => format!("{{{var}}}"),
+            })
+            .collect()
+    }
+}
+
 pub trait HumaneInstruction: Sync {
     fn instruction(&self) -> &'static str;
     fn run(&self, args: &InstructionArgs, civ: &mut Civilization) -> Result<(), HumaneStepError>;
