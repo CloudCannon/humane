@@ -27,6 +27,8 @@ pub async fn run_humane_experiment(
 
     run_humane_steps(&input.steps, all_files, instructions, &mut civ).await?;
 
+    civ.shutdown().await;
+
     Ok(())
 }
 
