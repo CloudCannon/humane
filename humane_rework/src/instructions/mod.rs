@@ -1,5 +1,7 @@
 use std::{collections::HashMap, hash::Hash};
 
+use async_trait::async_trait;
+
 use crate::{
     civilization::Civilization,
     errors::{HumaneInputError, HumaneStepError},
@@ -7,6 +9,7 @@ use crate::{
 };
 
 mod filesystem;
+mod hosting;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HumaneSegment {
@@ -80,9 +83,14 @@ impl HumaneSegments {
     }
 }
 
+#[async_trait]
 pub trait HumaneInstruction: Sync {
     fn instruction(&self) -> &'static str;
-    fn run(&self, args: &InstructionArgs, civ: &mut Civilization) -> Result<(), HumaneStepError>;
+    async fn run(
+        &self,
+        args: &InstructionArgs<'_>,
+        civ: &mut Civilization,
+    ) -> Result<(), HumaneStepError>;
 }
 
 inventory::collect!(&'static dyn HumaneInstruction);
@@ -225,14 +233,15 @@ mod test {
             &TestInstruction as &dyn HumaneInstruction
         }
 
+        #[async_trait]
         impl HumaneInstruction for TestInstruction {
             fn instruction(&self) -> &'static str {
                 "I am an instruction asking for {argument}"
             }
 
-            fn run(
+            async fn run(
                 &self,
-                args: &InstructionArgs,
+                args: &InstructionArgs<'_>,
                 civ: &mut Civilization,
             ) -> Result<(), HumaneStepError> {
                 Ok(())

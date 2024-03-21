@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::{collections::HashMap, path::PathBuf, time::Instant};
 
+use console::style;
 use futures::stream::StreamExt;
 use futures::{future::join_all, stream::FuturesUnordered};
 use instructions::HumaneSegments;
@@ -140,8 +141,10 @@ async fn main() {
                             .expect("should exist in the global set");
 
                         eprintln!(
-                            "Step \"{orig}\" was not found.\nLooked for \"{instruction_comparator}\"\nClosest matching step: \"{}\"",
-                            actual_instruction.get_as_string()
+                            "Step \"{}\" was not found. (no match for \"{}\")\nClosest matching step: \"{}\"",
+                            style(orig).red(),
+                            style(instruction_comparator).yellow(),
+                            style(actual_instruction.get_as_string()).cyan()
                         );
                     }
                     HumaneTestStep::Snapshot {

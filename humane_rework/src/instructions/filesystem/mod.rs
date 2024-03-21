@@ -5,6 +5,8 @@ use crate::civilization::Civilization;
 use super::{HumaneInstruction, InstructionArgs};
 
 mod new_file {
+    use async_trait::async_trait;
+
     use crate::errors::{HumaneInputError, HumaneStepError};
 
     use super::*;
@@ -15,14 +17,15 @@ mod new_file {
         &NewFile as &dyn HumaneInstruction
     }
 
+    #[async_trait]
     impl HumaneInstruction for NewFile {
         fn instruction(&self) -> &'static str {
             "I have a {filename} file with the content {contents}"
         }
 
-        fn run(
+        async fn run(
             &self,
-            args: &InstructionArgs,
+            args: &InstructionArgs<'_>,
             civ: &mut Civilization,
         ) -> Result<(), HumaneStepError> {
             let filename = args.get_str("filename")?;

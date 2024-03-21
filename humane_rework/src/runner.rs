@@ -1,5 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
+use console::style;
+
 use crate::{
     civilization::Civilization,
     errors::{HumaneInputError, HumaneStepError, HumaneTestError},
@@ -42,11 +44,7 @@ async fn run_humane_steps(
             } => {
                 println!("TODO: Need to load {other_file:?}")
             }
-            crate::HumaneTestStep::Step {
-                step,
-                args,
-                orig: _,
-            } => {
+            crate::HumaneTestStep::Step { step, args, orig } => {
                 let Some((reference_segments, instruction)) = instructions.get_key_value(step)
                 else {
                     return Err(HumaneTestError {
@@ -54,8 +52,6 @@ async fn run_humane_steps(
                         step: cur_step.clone(),
                     });
                 };
-
-                println!("Found an instruction!: {}", instruction.instruction());
 
                 let instruction_args = InstructionArgs::build(reference_segments, step, args)
                     .map_err(|e| HumaneTestError {
@@ -65,10 +61,13 @@ async fn run_humane_steps(
 
                 instruction
                     .run(&instruction_args, civ)
+                    .await
                     .map_err(|e| HumaneTestError {
                         err: e.into(),
                         step: cur_step.clone(),
                     })?;
+
+                println!("• {}", style(orig).green());
             }
             crate::HumaneTestStep::Snapshot {
                 snapshot,

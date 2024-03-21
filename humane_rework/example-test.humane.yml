@@ -2,7 +2,7 @@ test: Exact Phrase Matching
 
 setup:
   - ref: ../base-vars.humane.yml
-  - I have a "public/index.html" file with the contents "<p>Hello World</p>"
+  - I have a "public/index.html" file with the content "<p>Hello World</p>"
 
 steps:
   - I have a "public/cat/index.html" file with the content "<h1>Happy post about cats</h1>"
@@ -11,18 +11,24 @@ steps:
       <h1>A post about how cats do not like dogs</h1>
       <p>More content</p>
 
-  - I run my program
-  - I should see "Running Pagefind" in stdout
-  - snapshot: The directory "public"
+  # - I run my program
+  # - I should see "Running Pagefind" in stdout
+  # - snapshot: The directory "public"
   - I serve the directory "public"
   - In my browser, I load "/"
   - step: In my browser, I evaluate {js}
     js: |-
-      let pagefind = await import("/pagefind/pagefind.js");
-      let search = await pagefind.search(`"about cats"`);
+      let p = document.querySelector("p");
 
-      humane.assert_eq(search.results.length, 1);
-      humane.assert_eq(data?.url, "/cat/");
+      humane.assert_eq(p.innerText, "Hello World");
 
-  - In my browser, there should be no logs
-  - snapshot: In my browser, the element "input.pagefind"
+  # - step: In my browser, I evaluate {js}
+  #   js: |-
+  #     let pagefind = await import("/pagefind/pagefind.js");
+  #     let search = await pagefind.search(`"about cats"`);
+
+  #     humane.assert_eq(search.results.length, 1);
+  #     humane.assert_eq(data?.url, "/cat/");
+
+  # - In my browser, there should be no logs
+  # - snapshot: In my browser, the element "input.pagefind"
