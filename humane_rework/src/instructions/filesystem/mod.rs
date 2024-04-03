@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
+use async_trait::async_trait;
+
 use crate::civilization::Civilization;
+use crate::errors::{HumaneInputError, HumaneStepError};
 
 use super::{HumaneInstruction, InstructionArgs};
 
 mod new_file {
-    use async_trait::async_trait;
-
-    use crate::errors::{HumaneInputError, HumaneStepError};
 
     use super::*;
 

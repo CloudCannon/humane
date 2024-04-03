@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use pagebrowse_lib::PagebrowseError;
 use thiserror::Error;
 
 use crate::HumaneTestStep;
@@ -24,12 +25,16 @@ pub enum HumaneInputError {
     InvalidPath { input: String },
     #[error("step does not exist")]
     NonexistentStep,
+    #[error("step requirements were not met: {reason}")]
+    StepRequirementsNotMet { reason: String },
 }
 
 #[derive(Error, Debug)]
 pub enum HumaneInternalError {
     #[error("Test error: {msg}")]
     Custom { msg: String },
+    #[error("{0}")]
+    PagebrowseError(#[from] PagebrowseError),
 }
 
 #[derive(Error, Debug)]

@@ -1,17 +1,16 @@
 use std::collections::HashMap;
 
-use crate::civilization::Civilization;
-
 use super::{HumaneInstruction, InstructionArgs};
+use crate::civilization::Civilization;
+use crate::errors::{HumaneInputError, HumaneStepError};
+
+use async_trait::async_trait;
 
 mod host_dir {
     use std::time::Duration;
 
     use actix_web::{App, HttpServer};
-    use async_trait::async_trait;
     use tokio::time::sleep;
-
-    use crate::errors::{HumaneInputError, HumaneStepError};
 
     use super::*;
 
@@ -45,6 +44,7 @@ mod host_dir {
                 .bind(("127.0.0.1", port))
                 {
                     Ok(bound) => {
+                        println!("Hosting on port {port}");
                         let server = bound.run();
                         let handle = server.handle();
                         civ.handles.push(handle);

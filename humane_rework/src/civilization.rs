@@ -5,13 +5,17 @@ use std::{
     path::PathBuf,
     process::Command,
     str::from_utf8,
+    sync::Arc,
 };
 
 use actix_web::dev::ServerHandle;
+use pagebrowse_lib::{Pagebrowser, PagebrowserWindow};
 use portpicker::pick_unused_port;
 use tempfile::tempdir;
 use tokio::task::JoinHandle;
 use wax::Glob;
+
+use crate::universe::Universe;
 
 #[derive(Debug)]
 pub struct CommandOutput {
@@ -19,17 +23,18 @@ pub struct CommandOutput {
     pub stderr: String,
 }
 
-#[derive(Debug)]
-pub struct Civilization {
+pub struct Civilization<'u> {
     pub tmp_dir: Option<tempfile::TempDir>,
     pub last_command_output: Option<CommandOutput>,
     pub assigned_server_port: Option<u16>,
+    pub window: Option<PagebrowserWindow>,
     pub threads: Vec<JoinHandle<Result<(), std::io::Error>>>,
     pub handles: Vec<ServerHandle>,
     pub env_vars: HashMap<String, String>,
+    pub universe: &'u Universe<'u>,
 }
 
-impl Civilization {
+impl<'u> Civilization<'u> {
     pub async fn shutdown(&mut self) {
         for handle in &self.handles {
             handle.stop(false).await;
@@ -40,7 +45,7 @@ impl Civilization {
     }
 }
 
-impl Civilization {
+impl<'u> Civilization<'u> {
     pub fn ensure_port(&mut self) -> u16 {
         if self.assigned_server_port.is_none() {
             self.assigned_server_port = pick_unused_port();

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use console::style;
 
@@ -6,26 +6,28 @@ use crate::{
     civilization::Civilization,
     errors::{HumaneInputError, HumaneStepError, HumaneTestError},
     instructions::{HumaneInstruction, HumaneSegments, InstructionArgs},
+    universe::Universe,
     HumaneTestFile, HumaneTestStep,
 };
 
 pub async fn run_humane_experiment(
     input: &HumaneTestFile,
-    all_files: &HashMap<PathBuf, HumaneTestFile>,
-    instructions: &HashMap<HumaneSegments, &dyn HumaneInstruction>,
+    universe: &Universe<'_>,
 ) -> Result<(), HumaneTestError> {
     let mut civ = Civilization {
         tmp_dir: None,
         last_command_output: None,
         assigned_server_port: None,
+        window: None,
         threads: vec![],
         handles: vec![],
         env_vars: HashMap::new(),
+        universe,
     };
 
-    run_humane_steps(&input.setup, all_files, instructions, &mut civ).await?;
+    run_humane_steps(&input.setup, &mut civ).await?;
 
-    run_humane_steps(&input.steps, all_files, instructions, &mut civ).await?;
+    run_humane_steps(&input.steps, &mut civ).await?;
 
     civ.shutdown().await;
 
@@ -34,9 +36,7 @@ pub async fn run_humane_experiment(
 
 async fn run_humane_steps(
     steps: &Vec<HumaneTestStep>,
-    all_files: &HashMap<PathBuf, HumaneTestFile>,
-    instructions: &HashMap<HumaneSegments, &dyn HumaneInstruction>,
-    civ: &mut Civilization,
+    civ: &mut Civilization<'_>,
 ) -> Result<(), HumaneTestError> {
     for cur_step in steps.iter() {
         match cur_step {
@@ -47,7 +47,8 @@ async fn run_humane_steps(
                 println!("TODO: Need to load {other_file:?}")
             }
             crate::HumaneTestStep::Step { step, args, orig } => {
-                let Some((reference_segments, instruction)) = instructions.get_key_value(step)
+                let Some((reference_segments, instruction)) =
+                    civ.universe.instructions.get_key_value(step)
                 else {
                     return Err(HumaneTestError {
                         err: HumaneStepError::External(HumaneInputError::NonexistentStep),

@@ -1,10 +1,12 @@
 use std::fmt::Display;
+use std::sync::Arc;
 use std::{collections::HashMap, path::PathBuf, time::Instant};
 
 use console::style;
 use futures::stream::StreamExt;
 use futures::{future::join_all, stream::FuturesUnordered};
 use instructions::HumaneSegments;
+use pagebrowse_lib::PagebrowseBuilder;
 use similar_string::find_best_similarity;
 use tokio::fs::read_to_string;
 use wax::Glob;
@@ -12,6 +14,7 @@ use wax::Glob;
 use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
 use crate::instructions::register_instructions;
 use crate::parser::parse_instruction;
+use crate::universe::Universe;
 use crate::{parser::parse_file, runner::run_humane_experiment, writer::write_yaml_snapshots};
 
 mod civilization;
@@ -19,6 +22,7 @@ mod errors;
 mod instructions;
 mod parser;
 mod runner;
+mod universe;
 mod writer;
 
 #[derive(Debug, Clone)]
@@ -59,6 +63,9 @@ impl Display for HumaneTestStep {
 
 #[tokio::main]
 async fn main() {
+    // TODO: Wire up to concurrency option
+    let concurrency = 10;
+
     let start = Instant::now();
 
     let glob = Glob::new("**/*.humane.yml").expect("Valid glob");
@@ -120,6 +127,21 @@ async fn main() {
         .map(|k| k.get_comparison_string())
         .collect();
 
+    let pagebrowser = PagebrowseBuilder::new(concurrency)
+        .visible(true)
+        .manager_path(format!(
+            "{}/../../pagebrowse/target/debug/pagebrowse_manager",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .build()
+        .expect("Can't build the pagebrowser");
+
+    let universe = Universe {
+        pagebrowser: Arc::new(pagebrowser),
+        tests: all_tests,
+        instructions: all_instructions,
+    };
+
     let mut humanity = FuturesUnordered::new();
 
     let handle_res = |(file, res): (&HumaneTestFile, Result<(), HumaneTestError>)| match res {
@@ -136,7 +158,8 @@ async fn main() {
                         let parsed = parse_instruction(&best_match)
                             .expect("strings were serialized so shoudl always parse");
 
-                        let (actual_instruction, _) = all_instructions
+                        let (actual_instruction, _) = universe
+                            .instructions
                             .get_key_value(&parsed)
                             .expect("should exist in the global set");
 
@@ -160,16 +183,15 @@ async fn main() {
         },
     };
 
-    for test_file in all_tests.values() {
+    for test_file in universe.tests.values() {
         humanity.push(async {
             (
                 &*test_file,
-                run_humane_experiment(test_file, &all_tests, &all_instructions).await,
+                run_humane_experiment(test_file, &universe).await,
             )
         });
 
-        // TODO: Wire up to concurrency option
-        if humanity.len() == 10 {
+        if humanity.len() == concurrency {
             if let Some(res) = humanity.next().await {
                 handle_res(res);
             }

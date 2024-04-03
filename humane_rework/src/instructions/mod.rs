@@ -8,6 +8,7 @@ use crate::{
     parser::parse_instruction,
 };
 
+mod browser;
 mod filesystem;
 mod hosting;
 
