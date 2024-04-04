@@ -53,6 +53,7 @@ async fn run_humane_steps(
                     return Err(HumaneTestError {
                         err: HumaneStepError::External(HumaneInputError::NonexistentStep),
                         step: cur_step.clone(),
+                        arg_str: cur_step.args_pretty(),
                     });
                 };
 
@@ -60,6 +61,7 @@ async fn run_humane_steps(
                     .map_err(|e| HumaneTestError {
                         err: e.into(),
                         step: cur_step.clone(),
+                        arg_str: cur_step.args_pretty(),
                     })?;
 
                 instruction
@@ -68,6 +70,7 @@ async fn run_humane_steps(
                     .map_err(|e| HumaneTestError {
                         err: e.into(),
                         step: cur_step.clone(),
+                        arg_str: cur_step.args_pretty(),
                     })?;
 
                 println!("• {}", style(orig).green());

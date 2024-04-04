@@ -1,5 +1,6 @@
 use std::fmt::Display;
 use std::sync::Arc;
+use std::time::Duration;
 use std::{collections::HashMap, path::PathBuf, time::Instant};
 
 use console::style;
@@ -9,6 +10,7 @@ use instructions::HumaneSegments;
 use pagebrowse_lib::PagebrowseBuilder;
 use similar_string::find_best_similarity;
 use tokio::fs::read_to_string;
+use tokio::time::sleep;
 use wax::Glob;
 
 use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
@@ -57,6 +59,22 @@ impl Display for HumaneTestStep {
 
         match self {
             Ref { orig, .. } | Step { orig, .. } | Snapshot { orig, .. } => write!(f, "{}", orig),
+        }
+    }
+}
+
+impl HumaneTestStep {
+    pub fn args_pretty(&self) -> String {
+        let args = match self {
+            HumaneTestStep::Step { args, .. } => Some(args),
+            HumaneTestStep::Snapshot { args, .. } => Some(args),
+            _ => None,
+        };
+
+        if let Some(args) = args {
+            format!("\n{}", serde_yaml::to_string(&args).unwrap())
+        } else {
+            String::new()
         }
     }
 }
@@ -128,7 +146,7 @@ async fn main() {
         .collect();
 
     let pagebrowser = PagebrowseBuilder::new(concurrency)
-        .visible(true)
+        .visible(false)
         .manager_path(format!(
             "{}/../../pagebrowse/target/debug/pagebrowse_manager",
             env!("CARGO_MANIFEST_DIR")
@@ -145,7 +163,10 @@ async fn main() {
     let mut humanity = FuturesUnordered::new();
 
     let handle_res = |(file, res): (&HumaneTestFile, Result<(), HumaneTestError>)| match res {
-        Ok(h) => println!("----> Test succeeded: {}", file.test),
+        Ok(h) => {
+            let msg = format!("### Test succeeded: {}", file.test);
+            println!("{}", style(msg).cyan());
+        }
         Err(e) => match &e.err {
             HumaneStepError::External(ex) => match ex {
                 errors::HumaneInputError::NonexistentStep => match e.step {
@@ -177,9 +198,15 @@ async fn main() {
                         orig,
                     } => todo!(),
                 },
-                _ => eprintln!("!!!!> Test {} failed:\n{e}", file.test),
+                _ => {
+                    let msg = format!("### Test failed: {}", style(&file.test).bold());
+                    println!("{}\n{}", style(msg).red(), style(e).red());
+                }
             },
-            _ => eprintln!("!!!!> Test {} failed:\n{e}", file.test),
+            _ => {
+                let msg = format!("### Test failed: {}", style(&file.test).bold());
+                println!("{}\n{}", style(msg).red(), style(e).red());
+            }
         },
     };
 
@@ -201,6 +228,8 @@ async fn main() {
     while let Some(res) = humanity.next().await {
         handle_res(res);
     }
+
+    sleep(Duration::from_secs(1)).await;
 
     return;
     // let base_dir = self.tmp_file_path(".");

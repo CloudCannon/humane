@@ -44,7 +44,6 @@ mod host_dir {
                 .bind(("127.0.0.1", port))
                 {
                     Ok(bound) => {
-                        println!("Hosting on port {port}");
                         let server = bound.run();
                         let handle = server.handle();
                         civ.handles.push(handle);

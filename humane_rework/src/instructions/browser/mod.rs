@@ -38,7 +38,7 @@ mod load_page {
             let window = civ.universe.pagebrowser.get_window().await.unwrap();
 
             window
-                .navigate(url.to_string())
+                .navigate(url.to_string(), true)
                 .await
                 .map_err(|inner| HumaneStepError::Internal(inner.into()))?;
 
@@ -53,6 +53,8 @@ mod eval_js {
     use std::time::Duration;
 
     use tokio::time::sleep;
+
+    use crate::errors::{HumaneInternalError, HumaneTestFailure};
 
     use super::*;
 
@@ -83,12 +85,59 @@ mod eval_js {
                 ));
             };
 
-            window
-                .evaluate_script(js.to_string())
+            let harnessed = format!(
+                r#"
+                const humane_errs = [];
+
+                const humane = {{
+                    assert_eq: (left, right) => {{
+                        if (left !== right) {{
+                            humane_errs.push(`Equality Assertion failed. Left: ${{JSON.stringify(left)}}, Right: ${{JSON.stringify(right)}}`);
+                        }}
+                    }}
+                }}
+                
+                const inner = async () => {{
+                    {js}
+                }}
+
+                let inner_response;
+                try {{
+                    let inner_response = await inner();
+                }} catch (e) {{
+                    humane_errs.push(`JavaScript error: ${{e}}`);
+                }}
+                
+                return {{ humane_errs, inner_response }};
+            "#
+            );
+
+            let value = window
+                .evaluate_script(harnessed)
                 .await
                 .map_err(|inner| HumaneStepError::Internal(inner.into()))?;
 
-            // sleep(Duration::from_secs(20)).await;
+            let Some(serde_json::Value::Object(map)) = &value else {
+                return Err(HumaneStepError::External(HumaneInputError::StepError {
+                    reason: "JavaScript failed to parse and run".to_string(),
+                }));
+            };
+
+            let Some(serde_json::Value::Array(errors)) = map.get("humane_errs") else {
+                return Err(HumaneStepError::Internal(HumaneInternalError::Custom {
+                    msg: format!("JavaScript returned an unexpected value: {value:?}"),
+                }));
+            };
+
+            if !errors.is_empty() {
+                return Err(HumaneStepError::Assertion(HumaneTestFailure::Custom {
+                    msg: errors
+                        .iter()
+                        .map(|v| v.as_str().unwrap())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                }));
+            }
 
             Ok(())
         }

@@ -5,11 +5,15 @@ setup:
   - I have a "public/index.html" file with the content "<p>Hello World</p>"
 
 steps:
-  - I have a "public/cat/index.html" file with the content "<h1>Happy post about cats</h1>"
+  - I have a "public/cat/index.html" file with the content "<html lang='en'><body><h1>Happy post about cats</h1></body></html>"
   - step: I have a "public/dog/index.html" file with the content {html}
     html: |-
-      <h1>A post about how cats do not like dogs</h1>
-      <p>More content</p>
+      <html lang="en">
+        <body>
+          <h1>A post about how cats do not like dogs</h1>
+          <p>More content</p>
+        </body>
+      </html>
 
   # - I run my program
   # - I should see "Running Pagefind" in stdout
@@ -19,7 +23,6 @@ steps:
   - step: In my browser, I evaluate {js}
     js: |-
       let p = document.querySelector("p");
-
       humane.assert_eq(p.innerText, "Hello World");
 
   # - step: In my browser, I evaluate {js}

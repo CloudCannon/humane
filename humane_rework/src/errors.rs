@@ -27,6 +27,8 @@ pub enum HumaneInputError {
     NonexistentStep,
     #[error("step requirements were not met: {reason}")]
     StepRequirementsNotMet { reason: String },
+    #[error("{reason}")]
+    StepError { reason: String },
 }
 
 #[derive(Error, Debug)]
@@ -39,7 +41,7 @@ pub enum HumaneInternalError {
 
 #[derive(Error, Debug)]
 pub enum HumaneTestFailure {
-    #[error("Test failure: {msg}")]
+    #[error("{msg}")]
     Custom { msg: String },
 }
 
@@ -54,8 +56,9 @@ pub enum HumaneStepError {
 }
 
 #[derive(Error, Debug)]
-#[error("Error in step \"{step}\":\n{err}")]
+#[error("Error in step \"{step}\":{arg_str}--\n{err}")]
 pub struct HumaneTestError {
     pub err: HumaneStepError,
     pub step: HumaneTestStep,
+    pub arg_str: String,
 }
