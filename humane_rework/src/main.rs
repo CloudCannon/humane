@@ -162,53 +162,76 @@ async fn main() {
 
     let mut humanity = FuturesUnordered::new();
 
-    let handle_res = |(file, res): (&HumaneTestFile, Result<(), HumaneTestError>)| match res {
-        Ok(h) => {
-            let msg = format!("### Test succeeded: {}", file.test);
-            println!("{}", style(msg).cyan());
+    let handle_res = |(file, res): (
+        &HumaneTestFile,
+        Result<Vec<String>, (Vec<String>, HumaneTestError)>,
+    )| match res {
+        Ok(_logs) => {
+            let msg = format!("✅ {}", file.test);
+            println!("{}", style(msg).green());
         }
-        Err(e) => match &e.err {
-            HumaneStepError::External(ex) => match ex {
-                errors::HumaneInputError::NonexistentStep => match e.step {
-                    HumaneTestStep::Ref { other_file, orig } => todo!(),
-                    HumaneTestStep::Step { step, args, orig } => {
-                        let instruction_comparator = step.get_comparison_string();
-                        let (best_match, _) =
-                            find_best_similarity(&instruction_comparator, &instruction_comparisons)
-                                .expect("Some instructions should exist");
-                        let parsed = parse_instruction(&best_match)
-                            .expect("strings were serialized so shoudl always parse");
+        Err((logs, e)) => {
+            let log_err = || {
+                println!(
+                    "{}",
+                    style(&format!("\n### Test failed: {}", &file.test))
+                        .red()
+                        .bold()
+                );
+                println!("{}", style("--- STEP LOGS ---").on_yellow().bold());
+                for log in logs {
+                    println!("{log}");
+                }
+                println!("{}", style("--- ERROR ---").on_yellow().bold());
+                println!("{}", style(&e).red());
+            };
 
-                        let (actual_instruction, _) = universe
-                            .instructions
-                            .get_key_value(&parsed)
-                            .expect("should exist in the global set");
+            match &e.err {
+                HumaneStepError::External(ex) => match ex {
+                    errors::HumaneInputError::NonexistentStep => match e.step {
+                        HumaneTestStep::Ref { other_file, orig } => todo!(),
+                        HumaneTestStep::Step { step, args, orig } => {
+                            let instruction_comparator = step.get_comparison_string();
+                            let (best_match, _) = find_best_similarity(
+                                &instruction_comparator,
+                                &instruction_comparisons,
+                            )
+                            .expect("Some instructions should exist");
+                            let parsed = parse_instruction(&best_match)
+                                .expect("strings were serialized so shoudl always parse");
 
-                        eprintln!(
+                            let (actual_instruction, _) = universe
+                                .instructions
+                                .get_key_value(&parsed)
+                                .expect("should exist in the global set");
+
+                            eprintln!(
                             "Step \"{}\" was not found. (no match for \"{}\")\nClosest matching step: \"{}\"",
                             style(orig).red(),
                             style(instruction_comparator).yellow(),
                             style(actual_instruction.get_as_string()).cyan()
                         );
+                        }
+                        HumaneTestStep::Snapshot {
+                            snapshot,
+                            snapshot_content,
+                            args,
+                            orig,
+                        } => todo!(),
+                    },
+                    _ => {
+                        log_err();
                     }
-                    HumaneTestStep::Snapshot {
-                        snapshot,
-                        snapshot_content,
-                        args,
-                        orig,
-                    } => todo!(),
                 },
                 _ => {
-                    let msg = format!("### Test failed: {}", style(&file.test).bold());
-                    println!("{}\n{}", style(msg).red(), style(e).red());
+                    log_err();
                 }
-            },
-            _ => {
-                let msg = format!("### Test failed: {}", style(&file.test).bold());
-                println!("{}\n{}", style(msg).red(), style(e).red());
             }
-        },
+        }
     };
+
+    let mut failing = 0_usize;
+    let mut passing = 0_usize;
 
     for test_file in universe.tests.values() {
         humanity.push(async {
@@ -219,69 +242,68 @@ async fn main() {
         });
 
         if humanity.len() == concurrency {
-            if let Some(res) = humanity.next().await {
-                handle_res(res);
+            if let Some((file, res)) = humanity.next().await {
+                if res.is_ok() {
+                    passing += 1;
+                } else {
+                    failing += 1;
+                }
+
+                handle_res((file, res));
             }
         }
     }
 
-    while let Some(res) = humanity.next().await {
-        handle_res(res);
-    }
-
-    sleep(Duration::from_secs(1)).await;
-
-    return;
-    // let base_dir = self.tmp_file_path(".");
-    // let walk = glob.walk(&base_dir).flatten();
-    // let entries: Vec<String> = walk
-    //     .filter_map(|entry| {
-    //         let file = entry
-    //             .path()
-    //             .strip_prefix(&base_dir)
-    //             .expect("Valid file path");
-    //         let indentation = "  ".repeat(file.components().count().saturating_sub(1));
-    //         file.file_name().map(|filename| {
-    //             format!(
-    //                 "| {}{}",
-    //                 indentation,
-    //                 filename.to_str().expect("Valid filename utf8")
-    //             )
-    //         })
-    //     })
-    //     .collect();
-
-    let file = read_to_string("example-test.humane.yml").await.unwrap();
-
-    let test = parse_file(&file);
-
-    println!("{:#?}", test);
-
-    let Ok(mut test) = test else {
-        panic!("Could not parse that file");
-    };
-
-    for step in test.steps.iter_mut() {
-        match step {
-            HumaneTestStep::Snapshot {
-                snapshot,
-                snapshot_content,
-                args,
-                orig,
-            } => {
-                *snapshot_content = Some("Wahoooo\nmy snapshot content\ngoes here!!".to_string());
-            }
-            _ => {}
+    while let Some((file, res)) = humanity.next().await {
+        if res.is_ok() {
+            passing += 1;
+        } else {
+            failing += 1;
         }
+
+        handle_res((file, res));
     }
 
-    let output_doc = write_yaml_snapshots(&file, &test);
-    println!("---\n{output_doc}\n---");
+    // for step in test.steps.iter_mut() {
+    //     match step {
+    //         HumaneTestStep::Snapshot {
+    //             snapshot,
+    //             snapshot_content,
+    //             args,
+    //             orig,
+    //         } => {
+    //             *snapshot_content = Some("Wahoooo\nmy snapshot content\ngoes here!!".to_string());
+    //         }
+    //         _ => {}
+    //     }
+    // }
+
+    // let output_doc = write_yaml_snapshots(&file, &test);
+    // println!("---\n{output_doc}\n---");
 
     let duration = start.elapsed();
-    println!(
-        "Finished in {}.{:03} seconds",
+    let duration = format!(
+        "{}.{:03} seconds",
         duration.as_secs(),
         duration.subsec_millis()
     );
+
+    println!(
+        "\n{}\n{}",
+        style(&format!("Passing tests: {}", passing)).cyan(),
+        style(&format!("Failing tests: {}", failing)).cyan()
+    );
+
+    if failing > 0 {
+        println!(
+            "{}",
+            style(&format!("\nSome tests failed in {}", duration)).red()
+        );
+        std::process::exit(1);
+    } else {
+        println!(
+            "{}",
+            style(&format!("\nAll tests passed in {}", duration)).green()
+        );
+    }
 }

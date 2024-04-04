@@ -13,7 +13,7 @@ use crate::{
 pub async fn run_humane_experiment(
     input: &HumaneTestFile,
     universe: &Universe<'_>,
-) -> Result<(), HumaneTestError> {
+) -> Result<Vec<String>, (Vec<String>, HumaneTestError)> {
     let mut civ = Civilization {
         tmp_dir: None,
         last_command_output: None,
@@ -25,18 +25,25 @@ pub async fn run_humane_experiment(
         universe,
     };
 
-    run_humane_steps(&input.setup, &mut civ).await?;
+    let mut step_logs = vec![];
 
-    run_humane_steps(&input.steps, &mut civ).await?;
+    run_humane_steps(&input.setup, &mut civ, &mut step_logs)
+        .await
+        .map_err(|e| (step_logs.clone(), e))?;
+
+    run_humane_steps(&input.steps, &mut civ, &mut step_logs)
+        .await
+        .map_err(|e| (step_logs.clone(), e))?;
 
     civ.shutdown().await;
 
-    Ok(())
+    Ok(step_logs)
 }
 
 async fn run_humane_steps(
     steps: &Vec<HumaneTestStep>,
     civ: &mut Civilization<'_>,
+    step_logs: &mut Vec<String>,
 ) -> Result<(), HumaneTestError> {
     for cur_step in steps.iter() {
         match cur_step {
@@ -73,7 +80,7 @@ async fn run_humane_steps(
                         arg_str: cur_step.args_pretty(),
                     })?;
 
-                println!("• {}", style(orig).green());
+                step_logs.push(format!("• {}", style(orig).green()));
             }
             crate::HumaneTestStep::Snapshot {
                 snapshot,
