@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use crate::civilization::Civilization;
 use crate::errors::{HumaneInputError, HumaneStepError};
 
-use super::{HumaneInstruction, SegmentArgs};
+use super::{HumaneAssertion, HumaneInstruction, HumaneRetriever, SegmentArgs};
 
 mod env_var {
     use super::*;
@@ -71,38 +71,57 @@ mod stdio {
 
     use super::*;
 
-    pub struct StdOutContains;
+    pub struct StdOut;
 
     inventory::submit! {
-        &StdOutContains as &dyn HumaneInstruction
+        &StdOut as &dyn HumaneRetriever
     }
 
     #[async_trait]
-    impl HumaneInstruction for StdOutContains {
+    impl HumaneRetriever for StdOut {
         fn segments(&self) -> &'static str {
-            "stdout should contain {text}"
+            "stdout"
         }
 
         async fn run(
             &self,
             args: &SegmentArgs<'_>,
             civ: &mut Civilization,
-        ) -> Result<(), HumaneStepError> {
-            let expected = args.get_string("text")?;
-
+        ) -> Result<serde_json::Value, HumaneStepError> {
             let Some(output) = &civ.last_command_output else {
                 return Err(HumaneStepError::Assertion(HumaneTestFailure::Custom {
                     msg: "no stdout exists".into(),
                 }));
             };
 
-            if !output.stdout.contains(&expected) {}
+            Ok(output.stdout.clone().into())
+        }
+    }
 
-            let command = args.get_string("command")?;
+    pub struct StdErr;
 
-            civ.run_command(command.to_string())?;
+    inventory::submit! {
+        &StdErr as &dyn HumaneRetriever
+    }
 
-            Ok(())
+    #[async_trait]
+    impl HumaneRetriever for StdErr {
+        fn segments(&self) -> &'static str {
+            "stderr"
+        }
+
+        async fn run(
+            &self,
+            args: &SegmentArgs<'_>,
+            civ: &mut Civilization,
+        ) -> Result<serde_json::Value, HumaneStepError> {
+            let Some(output) = &civ.last_command_output else {
+                return Err(HumaneStepError::Assertion(HumaneTestFailure::Custom {
+                    msg: "no stderr exists".into(),
+                }));
+            };
+
+            Ok(output.stderr.clone().into())
         }
     }
 }

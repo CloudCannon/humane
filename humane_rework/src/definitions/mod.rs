@@ -10,6 +10,7 @@ use crate::{
     segments::{HumaneSegment, HumaneSegments, SegmentArgs},
 };
 
+mod assertions;
 mod browser;
 mod filesystem;
 mod hosting;

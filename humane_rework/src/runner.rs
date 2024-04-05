@@ -54,7 +54,7 @@ async fn run_humane_steps(
             } => {
                 println!("TODO: Need to load {other_file:?}")
             }
-            crate::HumaneTestStep::Step { step, args, orig } => {
+            crate::HumaneTestStep::Instruction { step, args, orig } => {
                 let Some((reference_segments, instruction)) =
                     civ.universe.instructions.get_key_value(step)
                 else {
@@ -75,6 +75,68 @@ async fn run_humane_steps(
 
                 instruction
                     .run(&instruction_args, civ)
+                    .await
+                    .map_err(|e| HumaneTestError {
+                        err: e.into(),
+                        step: cur_step.clone(),
+                        arg_str: cur_step.args_pretty(),
+                    })?;
+
+                step_logs.push(format!("• {}", style(orig).green()));
+            }
+            crate::HumaneTestStep::Assertion {
+                retrieval,
+                assertion,
+                args,
+                orig,
+            } => {
+                let Some((reference_ret, retrieval_step)) =
+                    civ.universe.retrievers.get_key_value(retrieval)
+                else {
+                    return Err(HumaneTestError {
+                        err: HumaneStepError::External(HumaneInputError::NonexistentStep),
+                        step: cur_step.clone(),
+                        arg_str: cur_step.args_pretty(),
+                    });
+                };
+
+                let retrieval_args =
+                    SegmentArgs::build(reference_ret, retrieval, args, Some(&civ.universe.ctx))
+                        .map_err(|e| HumaneTestError {
+                            err: e.into(),
+                            step: cur_step.clone(),
+                            arg_str: cur_step.args_pretty(),
+                        })?;
+
+                let value = retrieval_step
+                    .run(&retrieval_args, civ)
+                    .await
+                    .map_err(|e| HumaneTestError {
+                        err: e.into(),
+                        step: cur_step.clone(),
+                        arg_str: cur_step.args_pretty(),
+                    })?;
+
+                let Some((reference_assert, assertion_step)) =
+                    civ.universe.assertions.get_key_value(assertion)
+                else {
+                    return Err(HumaneTestError {
+                        err: HumaneStepError::External(HumaneInputError::NonexistentStep),
+                        step: cur_step.clone(),
+                        arg_str: cur_step.args_pretty(),
+                    });
+                };
+
+                let assertion_args =
+                    SegmentArgs::build(reference_assert, assertion, args, Some(&civ.universe.ctx))
+                        .map_err(|e| HumaneTestError {
+                            err: e.into(),
+                            step: cur_step.clone(),
+                            arg_str: cur_step.args_pretty(),
+                        })?;
+
+                assertion_step
+                    .run(value, &assertion_args, civ)
                     .await
                     .map_err(|e| HumaneTestError {
                         err: e.into(),

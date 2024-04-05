@@ -69,16 +69,10 @@ impl TryFrom<RawHumaneTestStep> for HumaneTestStep {
                 })?,
                 orig: r#ref,
             }),
-            RawHumaneTestStep::BareStep(step) => Ok(HumaneTestStep::Step {
-                step: parse_segments(&step)?,
-                args: HashMap::new(),
-                orig: step,
-            }),
-            RawHumaneTestStep::StepWithParams { step, other } => Ok(HumaneTestStep::Step {
-                step: parse_segments(&step)?,
-                args: HashMap::from_iter(other.into_iter()),
-                orig: step,
-            }),
+            RawHumaneTestStep::BareStep(step) => parse_step(step, HashMap::new()),
+            RawHumaneTestStep::StepWithParams { step, other } => {
+                parse_step(step, HashMap::from_iter(other.into_iter()))
+            }
             RawHumaneTestStep::Snapshot { snapshot, other } => Ok(HumaneTestStep::Snapshot {
                 snapshot: parse_segments(&snapshot)?,
                 snapshot_content: None,
@@ -86,6 +80,26 @@ impl TryFrom<RawHumaneTestStep> for HumaneTestStep {
                 orig: snapshot,
             }),
         }
+    }
+}
+
+fn parse_step(
+    step: String,
+    args: HashMap<String, Value>,
+) -> Result<HumaneTestStep, HumaneInputError> {
+    if let Some((retrieval, assertion)) = step.split_once(" should ") {
+        Ok(HumaneTestStep::Assertion {
+            retrieval: parse_segments(retrieval)?,
+            assertion: parse_segments(assertion)?,
+            args,
+            orig: step,
+        })
+    } else {
+        Ok(HumaneTestStep::Instruction {
+            step: parse_segments(&step)?,
+            args,
+            orig: step,
+        })
     }
 }
 
@@ -209,6 +223,55 @@ mod test {
                 Literal(" and ".to_string()),
                 Value(st("x")),
             ]
+        );
+    }
+
+    #[test]
+    fn test_parsing_steps() {
+        let Ok(step) = parse_step("I have a {js} file".to_string(), HashMap::new()) else {
+            panic!("Step did not parse");
+        };
+
+        assert_eq!(
+            step,
+            HumaneTestStep::Instruction {
+                step: HumaneSegments {
+                    segments: vec![
+                        Literal("I have a ".to_string()),
+                        Variable("js".to_string()),
+                        Literal(" file".to_string())
+                    ]
+                },
+                args: HashMap::new(),
+                orig: "I have a {js} file".to_string()
+            }
+        );
+
+        let Ok(step) = parse_step(
+            "The file {name} should contain {html}".to_string(),
+            HashMap::new(),
+        ) else {
+            panic!("Step did not parse");
+        };
+
+        assert_eq!(
+            step,
+            HumaneTestStep::Assertion {
+                retrieval: HumaneSegments {
+                    segments: vec![
+                        Literal("The file ".to_string()),
+                        Variable("name".to_string())
+                    ]
+                },
+                assertion: HumaneSegments {
+                    segments: vec![
+                        Literal("contain ".to_string()),
+                        Variable("html".to_string()),
+                    ]
+                },
+                args: HashMap::new(),
+                orig: "The file {name} should contain {html}".to_string()
+            }
         );
     }
 }

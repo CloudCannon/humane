@@ -3,6 +3,7 @@ use std::{collections::HashMap, hash::Hash};
 use crate::{errors::HumaneInputError, options::HumaneContext};
 
 use async_trait::async_trait;
+use serde_json::Value;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HumaneSegment {
@@ -128,6 +129,20 @@ impl<'a> SegmentArgs<'a> {
         })
     }
 
+    pub fn get_value(&self, k: impl AsRef<str>) -> Result<serde_json::Value, HumaneInputError> {
+        let Some(value) = self.args.get(k.as_ref()) else {
+            return Err(HumaneInputError::NonexistentArgument {
+                arg: k.as_ref().to_string(),
+                has: self.args.keys().cloned().collect::<Vec<_>>().join(", "),
+            });
+        };
+
+        let mut value = (*value).clone();
+        replace_inside_value(&mut value, &self.placeholder_delim, &self.placeholders);
+
+        Ok(value)
+    }
+
     pub fn get_string(&self, k: impl AsRef<str>) -> Result<String, HumaneInputError> {
         let Some(value) = self.args.get(k.as_ref()) else {
             return Err(HumaneInputError::NonexistentArgument {
@@ -136,38 +151,52 @@ impl<'a> SegmentArgs<'a> {
             });
         };
 
-        let Some(str) = value.as_str() else {
-            let found = match value {
-                serde_json::Value::Null => "null",
-                serde_json::Value::Bool(_) => "boolean",
-                serde_json::Value::Number(_) => "number",
-                serde_json::Value::Array(_) => "array",
-                serde_json::Value::Object(_) => "object",
-                serde_json::Value::String(_) => unreachable!(),
-            };
-            return Err(HumaneInputError::IncorrectArgumentType {
-                arg: k.as_ref().to_string(),
-                was: found.to_string(),
-                expected: "string".to_string(),
-            });
+        let mut value = (*value).clone();
+        replace_inside_value(&mut value, &self.placeholder_delim, &self.placeholders);
+
+        let found = match value {
+            serde_json::Value::Null => "null",
+            serde_json::Value::Bool(_) => "boolean",
+            serde_json::Value::Number(_) => "number",
+            serde_json::Value::Array(_) => "array",
+            serde_json::Value::Object(_) => "object",
+            Value::String(st) => return Ok(st),
         };
 
-        let mut str = str.to_string();
+        return Err(HumaneInputError::IncorrectArgumentType {
+            arg: k.as_ref().to_string(),
+            was: found.to_string(),
+            expected: "string".to_string(),
+        });
+    }
+}
 
-        if str.contains(&self.placeholder_delim) {
-            for (placeholder, value) in self.placeholders.iter() {
-                let matcher = format!(
-                    "{}{placeholder}{}",
-                    self.placeholder_delim, self.placeholder_delim
-                );
+fn replace_inside_value(value: &mut Value, delim: &str, placeholders: &HashMap<String, String>) {
+    use Value::*;
 
-                if str.contains(&matcher) {
-                    str = str.replace(&matcher, value);
+    match value {
+        Null | Bool(_) | Number(_) => {}
+        Value::String(s) => {
+            if s.contains(delim) {
+                for (placeholder, value) in placeholders.iter() {
+                    let matcher = format!("{delim}{placeholder}{delim}");
+
+                    if s.contains(&matcher) {
+                        *s = s.replace(&matcher, value);
+                    }
                 }
             }
         }
-
-        Ok(str)
+        Value::Array(vals) => {
+            vals.iter_mut().for_each(|v| {
+                replace_inside_value(v, delim, placeholders);
+            });
+        }
+        Value::Object(o) => {
+            o.values_mut().for_each(|v| {
+                replace_inside_value(v, delim, placeholders);
+            });
+        }
     }
 }
 
@@ -258,5 +287,48 @@ mod test {
 
         assert_ne!(segments_b, segments_c);
         assert_eq!(map.get(&&segments_c), None);
+    }
+
+    #[test]
+    fn test_complex_placeholders() {
+        let placeholders = HashMap::from([
+            ("cloud".to_string(), "cannon".to_string()),
+            ("thekey".to_string(), "the value".to_string()),
+        ]);
+
+        let start_value: serde_json::Value = serde_json::from_str(
+            r#"
+            {
+                "title": "Hello cloud%cloud%",
+                "tags": [ "cannon", "%cloud%" ],
+                "nested": {
+                    "null": null,
+                    "count": 3,
+                    "replaced": "thekey is %thekey%"
+                }
+            }
+        "#,
+        )
+        .unwrap();
+
+        let mut end_value = start_value.clone();
+        replace_inside_value(&mut end_value, "%", &placeholders);
+
+        let expected_end_value: serde_json::Value = serde_json::from_str(
+            r#"
+            {
+                "title": "Hello cloudcannon",
+                "tags": [ "cannon", "cannon" ],
+                "nested": {
+                    "null": null,
+                    "count": 3,
+                    "replaced": "thekey is the value"
+                }
+            }
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(end_value, expected_end_value);
     }
 }
