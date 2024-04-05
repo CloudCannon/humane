@@ -64,12 +64,13 @@ async fn run_humane_steps(
                     });
                 };
 
-                let instruction_args = InstructionArgs::build(reference_segments, step, args)
-                    .map_err(|e| HumaneTestError {
-                        err: e.into(),
-                        step: cur_step.clone(),
-                        arg_str: cur_step.args_pretty(),
-                    })?;
+                let instruction_args =
+                    InstructionArgs::build(reference_segments, step, args, Some(&civ.universe.ctx))
+                        .map_err(|e| HumaneTestError {
+                            err: e.into(),
+                            step: cur_step.clone(),
+                            arg_str: cur_step.args_pretty(),
+                        })?;
 
                 instruction
                     .run(&instruction_args, civ)

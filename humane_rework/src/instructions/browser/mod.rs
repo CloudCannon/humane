@@ -32,7 +32,7 @@ mod load_page {
             let url = format!(
                 "http://localhost:{}{}",
                 civ.ensure_port(),
-                args.get_str("url")?
+                args.get_string("url")?
             );
 
             let window = civ.universe.pagebrowser.get_window().await.unwrap();
@@ -75,7 +75,7 @@ mod eval_js {
             args: &InstructionArgs<'_>,
             civ: &mut Civilization,
         ) -> Result<(), HumaneStepError> {
-            let js = args.get_str("js")?;
+            let js = args.get_string("js")?;
 
             let Some(window) = civ.window.as_ref() else {
                 return Err(HumaneStepError::External(

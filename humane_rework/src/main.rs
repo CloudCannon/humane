@@ -15,6 +15,7 @@ use wax::Glob;
 
 use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
 use crate::instructions::register_instructions;
+use crate::options::configure;
 use crate::parser::parse_instruction;
 use crate::universe::Universe;
 use crate::{parser::parse_file, runner::run_humane_experiment, writer::write_yaml_snapshots};
@@ -22,6 +23,7 @@ use crate::{parser::parse_file, runner::run_humane_experiment, writer::write_yam
 mod civilization;
 mod errors;
 mod instructions;
+mod options;
 mod parser;
 mod runner;
 mod universe;
@@ -72,7 +74,12 @@ impl HumaneTestStep {
         };
 
         if let Some(args) = args {
-            format!("\n{}", serde_yaml::to_string(&args).unwrap())
+            let res = format!("{}", serde_yaml::to_string(&args).unwrap());
+            if res.trim() == "{}" {
+                String::new()
+            } else {
+                res
+            }
         } else {
             String::new()
         }
@@ -81,8 +88,7 @@ impl HumaneTestStep {
 
 #[tokio::main]
 async fn main() {
-    // TODO: Wire up to concurrency option
-    let concurrency = 10;
+    let ctx = configure();
 
     let start = Instant::now();
 
@@ -145,7 +151,7 @@ async fn main() {
         .map(|k| k.get_comparison_string())
         .collect();
 
-    let pagebrowser = PagebrowseBuilder::new(concurrency)
+    let pagebrowser = PagebrowseBuilder::new(ctx.params.concurrency)
         .visible(false)
         .manager_path(format!(
             "{}/../../pagebrowse/target/debug/pagebrowse_manager",
@@ -159,6 +165,7 @@ async fn main() {
         tests: all_tests,
         instructions: all_instructions,
         instruction_comparisons,
+        ctx,
     });
 
     // let mut humanity = FuturesUnordered::new();
@@ -232,7 +239,7 @@ async fn main() {
         }
     };
 
-    let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrency));
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(universe.ctx.params.concurrency));
 
     let mut hands = vec![];
 

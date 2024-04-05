@@ -3,6 +3,7 @@ use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use crate::{
     instructions::{HumaneInstruction, HumaneSegments},
+    options::HumaneContext,
     HumaneTestFile,
 };
 
@@ -11,4 +12,5 @@ pub struct Universe<'u> {
     pub tests: HashMap<PathBuf, HumaneTestFile>,
     pub instructions: HashMap<HumaneSegments, &'u dyn HumaneInstruction>,
     pub instruction_comparisons: Vec<String>,
+    pub ctx: HumaneContext,
 }

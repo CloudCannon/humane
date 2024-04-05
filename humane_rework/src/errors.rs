@@ -56,7 +56,7 @@ pub enum HumaneStepError {
 }
 
 #[derive(Error, Debug)]
-#[error("Error in step \"{step}\":{arg_str}--\n{err}")]
+#[error("Error in step \"{step}\":\n{arg_str}--\n{err}")]
 pub struct HumaneTestError {
     pub err: HumaneStepError,
     pub step: HumaneTestStep,

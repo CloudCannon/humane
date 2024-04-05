@@ -15,7 +15,8 @@ steps:
         </body>
       </html>
 
-  # - I run my program
+  - I have the environment variable "A" set to "B"
+  - I run "%pagefind% --site ."
   # - I should see "Running Pagefind" in stdout
   # - snapshot: The directory "public"
   - I serve the directory "public"

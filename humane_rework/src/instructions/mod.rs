@@ -5,12 +5,14 @@ use async_trait::async_trait;
 use crate::{
     civilization::Civilization,
     errors::{HumaneInputError, HumaneStepError},
+    options::{HumaneContext, HumaneParams},
     parser::parse_instruction,
 };
 
 mod browser;
 mod filesystem;
 mod hosting;
+mod process;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HumaneSegment {
@@ -98,6 +100,8 @@ inventory::collect!(&'static dyn HumaneInstruction);
 
 pub struct InstructionArgs<'a> {
     args: HashMap<String, &'a serde_json::Value>,
+    placeholder_delim: String,
+    placeholders: HashMap<String, String>,
 }
 
 impl<'a> InstructionArgs<'a> {
@@ -105,6 +109,7 @@ impl<'a> InstructionArgs<'a> {
         reference_instruction: &HumaneSegments,
         supplied_instruction: &'a HumaneSegments,
         supplied_args: &'a HashMap<String, serde_json::Value>,
+        ctx: Option<&HumaneContext>,
     ) -> Result<InstructionArgs<'a>, HumaneInputError> {
         let mut args = HashMap::new();
 
@@ -134,10 +139,18 @@ impl<'a> InstructionArgs<'a> {
             }
         }
 
-        Ok(Self { args })
+        Ok(Self {
+            args,
+            placeholders: ctx
+                .map(|c| c.params.placeholders.clone())
+                .unwrap_or_default(),
+            placeholder_delim: ctx
+                .map(|c| c.params.placeholder_delimiter.clone())
+                .unwrap_or_default(),
+        })
     }
 
-    fn get_str(&self, k: impl AsRef<str>) -> Result<&str, HumaneInputError> {
+    fn get_string(&self, k: impl AsRef<str>) -> Result<String, HumaneInputError> {
         let Some(value) = self.args.get(k.as_ref()) else {
             return Err(HumaneInputError::NonexistentArgument {
                 arg: k.as_ref().to_string(),
@@ -160,6 +173,21 @@ impl<'a> InstructionArgs<'a> {
                 expected: "string".to_string(),
             });
         };
+
+        let mut str = str.to_string();
+
+        if str.contains(&self.placeholder_delim) {
+            for (placeholder, value) in self.placeholders.iter() {
+                let matcher = format!(
+                    "{}{placeholder}{}",
+                    self.placeholder_delim, self.placeholder_delim
+                );
+
+                if str.contains(&matcher) {
+                    str = str.replace(&matcher, value);
+                }
+            }
+        }
 
         Ok(str)
     }
@@ -193,13 +221,46 @@ mod test {
 
         let input = HashMap::new();
 
-        let args = InstructionArgs::build(&instruction_def, &user_instruction, &input)
+        let args = InstructionArgs::build(&instruction_def, &user_instruction, &input, None)
             .expect("Args built successfully");
 
-        let Ok(str) = args.get_str("name") else {
-            panic!("Argument was not a string, got {:?}", args.get_str("name"));
+        let Ok(str) = args.get_string("name") else {
+            panic!(
+                "Argument was not a string, got {:?}",
+                args.get_string("name")
+            );
         };
         assert_eq!(str, "index.html");
+    }
+
+    #[test]
+    fn test_arg_placeholders() {
+        let instruction_def = parse_instruction("I have a {name} file with the contents {var}")
+            .expect("Valid instruction");
+
+        let user_instruction =
+            parse_instruction("I have a \"index.%ext%\" file with the contents ':)'")
+                .expect("Valid instruction");
+
+        let input = HashMap::new();
+        let mut params = HumaneParams::default();
+        params.placeholders.insert("ext".into(), "pdf".into());
+        let ctx = HumaneContext {
+            version: "test",
+            working_directory: std::env::current_dir().unwrap(),
+            params,
+        };
+
+        let args = InstructionArgs::build(&instruction_def, &user_instruction, &input, Some(&ctx))
+            .expect("Args built successfully");
+
+        let Ok(str) = args.get_string("name") else {
+            panic!(
+                "Argument was not a string, got {:?}",
+                args.get_string("name")
+            );
+        };
+        assert_eq!(str, "index.pdf");
     }
 
     // Instructions should alias to each other regardless of the contents of their

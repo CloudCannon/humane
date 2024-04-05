@@ -28,7 +28,7 @@ mod new_file {
             args: &InstructionArgs<'_>,
             civ: &mut Civilization,
         ) -> Result<(), HumaneStepError> {
-            let filename = args.get_str("filename")?;
+            let filename = args.get_string("filename")?;
             if filename.is_empty() {
                 return Err(HumaneInputError::ArgumentRequiresValue {
                     arg: "filename".to_string(),
@@ -36,9 +36,9 @@ mod new_file {
                 .into());
             }
 
-            let contents = args.get_str("contents")?;
+            let contents = args.get_string("contents")?;
 
-            civ.write_file(filename, contents);
+            civ.write_file(&filename, &contents);
 
             Ok(())
         }

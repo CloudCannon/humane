@@ -15,7 +15,7 @@ use tempfile::tempdir;
 use tokio::task::JoinHandle;
 use wax::Glob;
 
-use crate::universe::Universe;
+use crate::{errors::HumaneTestFailure, options::HumaneParams, universe::Universe};
 
 #[derive(Debug)]
 pub struct CommandOutput {
@@ -137,68 +137,38 @@ impl<'u> Civilization<'u> {
         self.tmp_file_path(filename).exists()
     }
 
-    pub fn set_env(&mut self, options: ()) {
-        todo!()
+    pub fn set_env(&mut self, name: String, value: String) {
+        self.env_vars.insert(name, value);
     }
 
-    pub fn run_command(&mut self, options: ()) {
-        let binary = std::env::var("TEST_BINARY").unwrap_or_else(|_| {
-            panic!("No binary supplied — please provide a TEST_BINARY environment variable");
-        });
-
-        let cli = build_command(&binary, None, options);
-        self.run_custom(cli);
-    }
-
-    pub fn run_custom<S: AsRef<str>>(&mut self, cmd: S) {
-        let processed_cmd = cmd.as_ref(); //self.process_substitutions(cmd);
-
+    pub fn run_command(&mut self, cmd: String) -> Result<(), HumaneTestFailure> {
         let mut command = Command::new("sh");
         command
             .arg("-c")
             .current_dir(self.tmp_dir())
-            .arg(&processed_cmd.replace(std::path::MAIN_SEPARATOR, "/"));
+            .arg(&cmd.replace(std::path::MAIN_SEPARATOR, "/"));
 
         for (key, val) in &self.env_vars {
             command.env(key, val);
         }
 
-        let output = command.output().expect("Failed to run binary");
+        let Ok(output) = command.output() else {
+            return Err(HumaneTestFailure::Custom {
+                msg: format!("Failed to run command: {cmd}"),
+            });
+        };
+
+        if !output.status.success() {
+            return Err(HumaneTestFailure::Custom {
+                msg: format!("Failed to run command ({}): {cmd}", output.status),
+            });
+        }
+
         self.last_command_output = Some(CommandOutput {
             stdout: from_utf8(&output.stdout).unwrap_or("failed utf8").into(),
             stderr: from_utf8(&output.stderr).unwrap_or("failed utf8").into(),
         });
+
+        Ok(())
     }
-}
-
-struct BinaryCommand(String);
-
-impl BinaryCommand {
-    fn add_flag(&mut self, flag: &str) {
-        self.0 = format!("{} {}", self.0, flag);
-    }
-
-    fn consume(self) -> String {
-        self.0
-    }
-}
-
-fn build_command(binary: &str, subcommand: Option<&str>, options: ()) -> String {
-    let cwd = std::env::current_dir().unwrap();
-    let binary_path = cwd.join(PathBuf::from(binary));
-    let binary_path = binary_path.to_str().unwrap();
-
-    let mut command = match subcommand {
-        Some(subcommand) => BinaryCommand(format!("{} {}", binary_path, subcommand)),
-        None => BinaryCommand(binary_path.into()),
-    };
-
-    todo!();
-    // if let Some(options) = options {
-    //     for row in &options.rows {
-    //         command.add_flag(&row[0]);
-    //     }
-    // }
-
-    command.consume()
 }

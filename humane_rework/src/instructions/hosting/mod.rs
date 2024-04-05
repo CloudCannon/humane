@@ -31,7 +31,7 @@ mod host_dir {
             args: &InstructionArgs<'_>,
             civ: &mut Civilization,
         ) -> Result<(), HumaneStepError> {
-            let dir = args.get_str("dir")?;
+            let dir = args.get_string("dir")?;
 
             let mut attempts = 0;
             let mut running = false;
