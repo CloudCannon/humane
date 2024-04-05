@@ -4,8 +4,9 @@ use console::style;
 
 use crate::{
     civilization::Civilization,
+    definitions::HumaneInstruction,
     errors::{HumaneInputError, HumaneStepError, HumaneTestError},
-    instructions::{HumaneInstruction, HumaneSegments, InstructionArgs},
+    segments::SegmentArgs,
     universe::Universe,
     HumaneTestFile, HumaneTestStep,
 };
@@ -65,7 +66,7 @@ async fn run_humane_steps(
                 };
 
                 let instruction_args =
-                    InstructionArgs::build(reference_segments, step, args, Some(&civ.universe.ctx))
+                    SegmentArgs::build(reference_segments, step, args, Some(&civ.universe.ctx))
                         .map_err(|e| HumaneTestError {
                             err: e.into(),
                             step: cur_step.clone(),

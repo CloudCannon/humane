@@ -17,7 +17,37 @@ steps:
 
   - I have the environment variable "A" set to "B"
   - I run "%pagefind% --site ."
-  # - I should see "Running Pagefind" in stdout
+  - stdout should contain "Running Pagefind"
+  - stdout should not be empty
+  - stdout should be exactly {content}
+
+  - step: The file "rosey/base.json" should contain the values {values}
+    values:
+      version: 2
+      keys:
+        seal:
+          original: 🦭
+        e:
+          original: xx
+  - step: The file "rosey/base.json" should be exactly the data {values}
+    values:
+      version: 2
+      keys:
+        seal:
+          original: 🦭
+        e:
+          original: xx
+
+  - step: The file "en/index.html" should contain an html node matching {node}
+    node: "<a href='/en/>Click here if you are not redirected</a>"
+
+  - step: The file "en/index.html" should contain an html node matching {node}
+    node:
+      tag: a
+      innerText: Hello World
+      attributes:
+        href: "/en/"
+
   # - snapshot: The directory "public"
   - I serve the directory "public"
   - In my browser, I load "/"

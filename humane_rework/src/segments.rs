@@ -1,18 +1,8 @@
 use std::{collections::HashMap, hash::Hash};
 
+use crate::{errors::HumaneInputError, options::HumaneContext};
+
 use async_trait::async_trait;
-
-use crate::{
-    civilization::Civilization,
-    errors::{HumaneInputError, HumaneStepError},
-    options::{HumaneContext, HumaneParams},
-    parser::parse_instruction,
-};
-
-mod browser;
-mod filesystem;
-mod hosting;
-mod process;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum HumaneSegment {
@@ -86,31 +76,19 @@ impl HumaneSegments {
     }
 }
 
-#[async_trait]
-pub trait HumaneInstruction: Sync {
-    fn instruction(&self) -> &'static str;
-    async fn run(
-        &self,
-        args: &InstructionArgs<'_>,
-        civ: &mut Civilization,
-    ) -> Result<(), HumaneStepError>;
-}
-
-inventory::collect!(&'static dyn HumaneInstruction);
-
-pub struct InstructionArgs<'a> {
+pub struct SegmentArgs<'a> {
     args: HashMap<String, &'a serde_json::Value>,
     placeholder_delim: String,
     placeholders: HashMap<String, String>,
 }
 
-impl<'a> InstructionArgs<'a> {
+impl<'a> SegmentArgs<'a> {
     pub fn build(
         reference_instruction: &HumaneSegments,
         supplied_instruction: &'a HumaneSegments,
         supplied_args: &'a HashMap<String, serde_json::Value>,
         ctx: Option<&HumaneContext>,
-    ) -> Result<InstructionArgs<'a>, HumaneInputError> {
+    ) -> Result<SegmentArgs<'a>, HumaneInputError> {
         let mut args = HashMap::new();
 
         for (reference, supplied) in reference_instruction
@@ -150,7 +128,7 @@ impl<'a> InstructionArgs<'a> {
         })
     }
 
-    fn get_string(&self, k: impl AsRef<str>) -> Result<String, HumaneInputError> {
+    pub fn get_string(&self, k: impl AsRef<str>) -> Result<String, HumaneInputError> {
         let Some(value) = self.args.get(k.as_ref()) else {
             return Err(HumaneInputError::NonexistentArgument {
                 arg: k.as_ref().to_string(),
@@ -193,35 +171,30 @@ impl<'a> InstructionArgs<'a> {
     }
 }
 
-pub fn register_instructions() -> HashMap<HumaneSegments, &'static dyn HumaneInstruction> {
-    HashMap::<_, _>::from_iter(
-        (inventory::iter::<&dyn HumaneInstruction>)
-            .into_iter()
-            .map(|i| {
-                let segments = parse_instruction(i.instruction())
-                    .expect("builtin instructions should be parseable");
-
-                (segments, *i)
-            }),
-    )
-}
-
 #[cfg(test)]
 mod test {
+    use crate::{
+        civilization::Civilization,
+        definitions::{register_instructions, HumaneInstruction},
+        errors::HumaneStepError,
+        options::HumaneParams,
+        parser::parse_segments,
+    };
+
     use super::*;
 
     #[test]
     fn test_building_args() {
-        let instruction_def = parse_instruction("I have a {name} file with the contents {var}")
+        let segments_def = parse_segments("I have a {name} file with the contents {var}")
             .expect("Valid instruction");
 
         let user_instruction =
-            parse_instruction("I have a \"index.html\" file with the contents ':)'")
+            parse_segments("I have a \"index.html\" file with the contents ':)'")
                 .expect("Valid instruction");
 
         let input = HashMap::new();
 
-        let args = InstructionArgs::build(&instruction_def, &user_instruction, &input, None)
+        let args = SegmentArgs::build(&segments_def, &user_instruction, &input, None)
             .expect("Args built successfully");
 
         let Ok(str) = args.get_string("name") else {
@@ -235,11 +208,11 @@ mod test {
 
     #[test]
     fn test_arg_placeholders() {
-        let instruction_def = parse_instruction("I have a {name} file with the contents {var}")
+        let instruction_def = parse_segments("I have a {name} file with the contents {var}")
             .expect("Valid instruction");
 
         let user_instruction =
-            parse_instruction("I have a \"index.%ext%\" file with the contents ':)'")
+            parse_segments("I have a \"index.%ext%\" file with the contents ':)'")
                 .expect("Valid instruction");
 
         let input = HashMap::new();
@@ -251,7 +224,7 @@ mod test {
             params,
         };
 
-        let args = InstructionArgs::build(&instruction_def, &user_instruction, &input, Some(&ctx))
+        let args = SegmentArgs::build(&instruction_def, &user_instruction, &input, Some(&ctx))
             .expect("Args built successfully");
 
         let Ok(str) = args.get_string("name") else {
@@ -263,65 +236,27 @@ mod test {
         assert_eq!(str, "index.pdf");
     }
 
-    // Instructions should alias to each other regardless of the contents of their
+    // Segments should alias to each other regardless of the contents of their
     // variables or values.
     #[test]
-    fn test_instruction_equality() {
-        let instruction_a = parse_instruction("I have a 'index.html' file with the contents {var}")
-            .expect("Valid instruction");
+    fn test_segments_equality() {
+        let segments_a = parse_segments("I have a 'index.html' file with the contents {var}")
+            .expect("Valid segments");
 
-        let instruction_b = parse_instruction("I have a {filename} file with the contents {var}")
-            .expect("Valid instruction");
+        let segments_b = parse_segments("I have a {filename} file with the contents {var}")
+            .expect("Valid segments");
 
-        let instruction_c = parse_instruction("I have one {filename} file with the contents {var}")
-            .expect("Valid instruction");
+        let segments_c = parse_segments("I have one {filename} file with the contents {var}")
+            .expect("Valid segments");
 
-        assert_eq!(instruction_a, instruction_b);
+        assert_eq!(segments_a, segments_b);
 
         let mut map = HashMap::new();
-        map.insert(&instruction_b, "b");
+        map.insert(&segments_b, "b");
 
-        assert_eq!(map.get(&&instruction_a), Some(&"b"));
+        assert_eq!(map.get(&&segments_a), Some(&"b"));
 
-        assert_ne!(instruction_b, instruction_c);
-        assert_eq!(map.get(&&instruction_c), None);
-    }
-
-    #[test]
-    fn test_getting_an_instruction() {
-        pub struct TestInstruction;
-
-        inventory::submit! {
-            &TestInstruction as &dyn HumaneInstruction
-        }
-
-        #[async_trait]
-        impl HumaneInstruction for TestInstruction {
-            fn instruction(&self) -> &'static str {
-                "I am an instruction asking for {argument}"
-            }
-
-            async fn run(
-                &self,
-                args: &InstructionArgs<'_>,
-                civ: &mut Civilization,
-            ) -> Result<(), HumaneStepError> {
-                Ok(())
-            }
-        }
-
-        let users_instruction =
-            parse_instruction("I am an instruction asking for \"this argument\"")
-                .expect("Valid instruction");
-
-        let all_instructions = register_instructions();
-        let matching_instruction = all_instructions
-            .get(&users_instruction)
-            .expect("should be able to retrieve instruction");
-
-        assert_eq!(
-            matching_instruction.instruction(),
-            "I am an instruction asking for {argument}"
-        );
+        assert_ne!(segments_b, segments_c);
+        assert_eq!(map.get(&&segments_c), None);
     }
 }

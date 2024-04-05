@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{HumaneInstruction, InstructionArgs};
+use super::{HumaneInstruction, SegmentArgs};
 use crate::civilization::Civilization;
 use crate::errors::{HumaneInputError, HumaneStepError};
 
@@ -22,13 +22,13 @@ mod host_dir {
 
     #[async_trait]
     impl HumaneInstruction for HostDir {
-        fn instruction(&self) -> &'static str {
+        fn segments(&self) -> &'static str {
             "I serve the directory {dir}"
         }
 
         async fn run(
             &self,
-            args: &InstructionArgs<'_>,
+            args: &SegmentArgs<'_>,
             civ: &mut Civilization,
         ) -> Result<(), HumaneStepError> {
             let dir = args.get_string("dir")?;

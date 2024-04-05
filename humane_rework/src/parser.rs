@@ -4,7 +4,7 @@ use serde_json::{Map, Value};
 
 use crate::{
     errors::HumaneInputError,
-    instructions::{HumaneSegment, HumaneSegments},
+    segments::{HumaneSegment, HumaneSegments},
     HumaneTestFile, HumaneTestStep,
 };
 
@@ -70,17 +70,17 @@ impl TryFrom<RawHumaneTestStep> for HumaneTestStep {
                 orig: r#ref,
             }),
             RawHumaneTestStep::BareStep(step) => Ok(HumaneTestStep::Step {
-                step: parse_instruction(&step)?,
+                step: parse_segments(&step)?,
                 args: HashMap::new(),
                 orig: step,
             }),
             RawHumaneTestStep::StepWithParams { step, other } => Ok(HumaneTestStep::Step {
-                step: parse_instruction(&step)?,
+                step: parse_segments(&step)?,
                 args: HashMap::from_iter(other.into_iter()),
                 orig: step,
             }),
             RawHumaneTestStep::Snapshot { snapshot, other } => Ok(HumaneTestStep::Snapshot {
-                snapshot: parse_instruction(&snapshot)?,
+                snapshot: parse_segments(&snapshot)?,
                 snapshot_content: None,
                 args: HashMap::from_iter(other.into_iter()),
                 orig: snapshot,
@@ -95,7 +95,7 @@ pub fn parse_file(s: &str) -> Result<HumaneTestFile, HumaneInputError> {
     raw_test.try_into()
 }
 
-pub fn parse_instruction(s: &str) -> Result<HumaneSegments, HumaneInputError> {
+pub fn parse_segments(s: &str) -> Result<HumaneSegments, HumaneInputError> {
     let mut segments = vec![];
     use HumaneSegment::*;
 
@@ -176,19 +176,19 @@ mod test {
     }
 
     #[test]
-    fn test_parsing_instructions() {
-        let instruction = parse_instruction("I run my program").expect("Valid instruction");
+    fn test_parsing_segments() {
+        let segments = parse_segments("I run my program").expect("Valid segments");
         // We test equality on the segments directly,
-        // as the instruction itself uses a looser comparison that doesn't
+        // as the segments itself uses a looser comparison that doesn't
         // look inside Value or Variable segments.
         assert_eq!(
-            instruction.segments,
+            segments.segments,
             vec![Literal("I run my program".to_string())]
         );
 
-        let instruction = parse_instruction("I have a \"public/cat/'index'.html\" file with the body '<h1>Happy post about \"cats</h1>'").expect("Valid instruction");
+        let segments = parse_segments("I have a \"public/cat/'index'.html\" file with the body '<h1>Happy post about \"cats</h1>'").expect("Valid segments");
         assert_eq!(
-            instruction.segments,
+            segments.segments,
             vec![
                 Literal("I have a ".to_string()),
                 Value(st("public/cat/'index'.html")),
@@ -197,10 +197,10 @@ mod test {
             ]
         );
 
-        let instruction =
-            parse_instruction("In my browser, ''I eval {j\"s} and 'x'").expect("Valid instruction");
+        let segments =
+            parse_segments("In my browser, ''I eval {j\"s} and 'x'").expect("Valid segments");
         assert_eq!(
-            instruction.segments,
+            segments.segments,
             vec![
                 Literal("In my browser, ".to_string()),
                 Value(st("")),

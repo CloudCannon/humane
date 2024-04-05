@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use crate::civilization::Civilization;
 use crate::errors::{HumaneInputError, HumaneStepError};
 
-use super::{HumaneInstruction, InstructionArgs};
+use super::{HumaneInstruction, SegmentArgs};
 
 mod new_file {
 
@@ -19,13 +19,13 @@ mod new_file {
 
     #[async_trait]
     impl HumaneInstruction for NewFile {
-        fn instruction(&self) -> &'static str {
+        fn segments(&self) -> &'static str {
             "I have a {filename} file with the content {contents}"
         }
 
         async fn run(
             &self,
-            args: &InstructionArgs<'_>,
+            args: &SegmentArgs<'_>,
             civ: &mut Civilization,
         ) -> Result<(), HumaneStepError> {
             let filename = args.get_string("filename")?;

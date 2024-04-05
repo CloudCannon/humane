@@ -6,26 +6,27 @@ use std::{collections::HashMap, path::PathBuf, time::Instant};
 use console::style;
 use futures::stream::StreamExt;
 use futures::{future::join_all, stream::FuturesUnordered};
-use instructions::HumaneSegments;
 use pagebrowse_lib::PagebrowseBuilder;
+use segments::HumaneSegments;
 use similar_string::find_best_similarity;
 use tokio::fs::read_to_string;
 use tokio::time::sleep;
 use wax::Glob;
 
+use crate::definitions::{register_assertions, register_instructions, register_retrievers};
 use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
-use crate::instructions::register_instructions;
 use crate::options::configure;
-use crate::parser::parse_instruction;
+use crate::parser::parse_segments;
 use crate::universe::Universe;
 use crate::{parser::parse_file, runner::run_humane_experiment, writer::write_yaml_snapshots};
 
 mod civilization;
+mod definitions;
 mod errors;
-mod instructions;
 mod options;
 mod parser;
 mod runner;
+mod segments;
 mod universe;
 mod writer;
 
@@ -145,8 +146,19 @@ async fn main() {
     }
 
     let all_instructions = register_instructions();
-
     let instruction_comparisons: Vec<_> = all_instructions
+        .keys()
+        .map(|k| k.get_comparison_string())
+        .collect();
+
+    let all_retrievers = register_retrievers();
+    let retriever_comparisons: Vec<_> = all_retrievers
+        .keys()
+        .map(|k| k.get_comparison_string())
+        .collect();
+
+    let all_assertions = register_assertions();
+    let assertion_comparisons: Vec<_> = all_assertions
         .keys()
         .map(|k| k.get_comparison_string())
         .collect();
@@ -165,6 +177,10 @@ async fn main() {
         tests: all_tests,
         instructions: all_instructions,
         instruction_comparisons,
+        retrievers: all_retrievers,
+        retriever_comparisons,
+        assertions: all_assertions,
+        assertion_comparisons,
         ctx,
     });
 
@@ -206,7 +222,7 @@ async fn main() {
                                 &universe.instruction_comparisons,
                             )
                             .expect("Some instructions should exist");
-                            let parsed = parse_instruction(&best_match)
+                            let parsed = parse_segments(&best_match)
                                 .expect("strings were serialized so shoudl always parse");
 
                             let (actual_instruction, _) = universe

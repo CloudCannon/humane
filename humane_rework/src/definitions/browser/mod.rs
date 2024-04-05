@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use crate::civilization::Civilization;
 use crate::errors::{HumaneInputError, HumaneStepError};
 
-use super::{HumaneInstruction, InstructionArgs};
+use super::{HumaneInstruction, SegmentArgs};
 
 use pagebrowse_lib::{PagebrowseBuilder, Pagebrowser, PagebrowserWindow};
 
@@ -20,13 +20,13 @@ mod load_page {
 
     #[async_trait]
     impl HumaneInstruction for LoadPage {
-        fn instruction(&self) -> &'static str {
+        fn segments(&self) -> &'static str {
             "In my browser, I load {url}"
         }
 
         async fn run(
             &self,
-            args: &InstructionArgs<'_>,
+            args: &SegmentArgs<'_>,
             civ: &mut Civilization,
         ) -> Result<(), HumaneStepError> {
             let url = format!(
@@ -66,13 +66,13 @@ mod eval_js {
 
     #[async_trait]
     impl HumaneInstruction for EvalJs {
-        fn instruction(&self) -> &'static str {
+        fn segments(&self) -> &'static str {
             "In my browser, I evaluate {js}"
         }
 
         async fn run(
             &self,
-            args: &InstructionArgs<'_>,
+            args: &SegmentArgs<'_>,
             civ: &mut Civilization,
         ) -> Result<(), HumaneStepError> {
             let js = args.get_string("js")?;
