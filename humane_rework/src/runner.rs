@@ -12,7 +12,7 @@ use crate::{
 
 pub async fn run_humane_experiment(
     input: &HumaneTestFile,
-    universe: &Universe<'_>,
+    universe: Arc<Universe<'_>>,
 ) -> Result<Vec<String>, (Vec<String>, HumaneTestError)> {
     let mut civ = Civilization {
         tmp_dir: None,

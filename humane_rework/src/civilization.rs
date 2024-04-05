@@ -31,7 +31,7 @@ pub struct Civilization<'u> {
     pub threads: Vec<JoinHandle<Result<(), std::io::Error>>>,
     pub handles: Vec<ServerHandle>,
     pub env_vars: HashMap<String, String>,
-    pub universe: &'u Universe<'u>,
+    pub universe: Arc<Universe<'u>>,
 }
 
 impl<'u> Civilization<'u> {

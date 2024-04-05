@@ -154,16 +154,18 @@ async fn main() {
         .build()
         .expect("Can't build the pagebrowser");
 
-    let universe = Universe {
+    let universe = Arc::new(Universe {
         pagebrowser: Arc::new(pagebrowser),
         tests: all_tests,
         instructions: all_instructions,
-    };
+        instruction_comparisons,
+    });
 
-    let mut humanity = FuturesUnordered::new();
+    // let mut humanity = FuturesUnordered::new();
 
-    let handle_res = |(file, res): (
-        &HumaneTestFile,
+    let handle_res = |universe: Arc<Universe>,
+                      (file, res): (
+        HumaneTestFile,
         Result<Vec<String>, (Vec<String>, HumaneTestError)>,
     )| match res {
         Ok(_logs) => {
@@ -194,7 +196,7 @@ async fn main() {
                             let instruction_comparator = step.get_comparison_string();
                             let (best_match, _) = find_best_similarity(
                                 &instruction_comparator,
-                                &instruction_comparisons,
+                                &universe.instruction_comparisons,
                             )
                             .expect("Some instructions should exist");
                             let parsed = parse_instruction(&best_match)
@@ -230,39 +232,37 @@ async fn main() {
         }
     };
 
-    let mut failing = 0_usize;
-    let mut passing = 0_usize;
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(concurrency));
 
-    for test_file in universe.tests.values() {
-        humanity.push(async {
-            (
-                &*test_file,
-                run_humane_experiment(test_file, &universe).await,
-            )
-        });
+    let mut hands = vec![];
 
-        if humanity.len() == concurrency {
-            if let Some((file, res)) = humanity.next().await {
-                if res.is_ok() {
-                    passing += 1;
-                } else {
-                    failing += 1;
-                }
+    for test in universe.tests.values().cloned() {
+        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let uni = Arc::clone(&universe);
+        hands.push(tokio::spawn(async move {
+            let res = run_humane_experiment(&test, Arc::clone(&uni)).await;
+            let passed = res.is_ok();
 
-                handle_res((file, res));
+            handle_res(uni, (test, res));
+
+            drop(permit);
+
+            if passed {
+                Ok(())
+            } else {
+                Err(())
             }
-        }
+        }));
     }
 
-    while let Some((file, res)) = humanity.next().await {
-        if res.is_ok() {
-            passing += 1;
-        } else {
-            failing += 1;
-        }
-
-        handle_res((file, res));
-    }
+    let results = join_all(hands)
+        .await
+        .into_iter()
+        .map(|outer_err| match outer_err {
+            Ok(Ok(_)) => Ok(()),
+            _ => Err(()),
+        })
+        .collect::<Vec<_>>();
 
     // for step in test.steps.iter_mut() {
     //     match step {
@@ -288,10 +288,13 @@ async fn main() {
         duration.subsec_millis()
     );
 
+    let failing = results.iter().filter(|r| r.is_err()).count();
+    let passing = results.iter().filter(|r| r.is_ok()).count();
+
     println!(
         "\n{}\n{}",
-        style(&format!("Passing tests: {}", passing)).cyan(),
-        style(&format!("Failing tests: {}", failing)).cyan()
+        style(&format!("Passing tests: {}", failing)).cyan(),
+        style(&format!("Failing tests: {}", passing)).cyan()
     );
 
     if failing > 0 {
