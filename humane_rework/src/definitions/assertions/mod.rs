@@ -64,6 +64,28 @@ fn value_contains_value(
     }
 }
 
+fn value_is_empty(val: &serde_json::Value) -> bool {
+    match val {
+        serde_json::Value::Null => true,
+        serde_json::Value::String(s) => s.is_empty(),
+        serde_json::Value::Bool(_) => false,
+        serde_json::Value::Number(_) => false,
+        serde_json::Value::Array(a) => a.is_empty(),
+        serde_json::Value::Object(o) => o.is_empty(),
+    }
+}
+
+fn value_type(val: &serde_json::Value) -> &'static str {
+    match val {
+        serde_json::Value::Null => "null",
+        serde_json::Value::String(_) => "string",
+        serde_json::Value::Bool(_) => "bool",
+        serde_json::Value::Number(_) => "number",
+        serde_json::Value::Array(_) => "array",
+        serde_json::Value::Object(_) => "object",
+    }
+}
+
 mod contain {
     use crate::errors::{HumaneInternalError, HumaneTestFailure};
 
@@ -129,6 +151,74 @@ mod contain {
                         "The value\n---\n{}\n---\nshould not contain the following value, but does\n---\n{}\n---",
                         serde_json::to_string(&base_value).expect("should be yaml-able"),
                         serde_json::to_string(&expected).expect("should be yaml-able")
+                    ),
+                }))
+            } else {
+                Ok(())
+            }
+        }
+    }
+}
+
+mod empty {
+    use crate::errors::{HumaneInternalError, HumaneTestFailure};
+
+    use super::*;
+
+    pub struct Empty;
+
+    inventory::submit! {
+        &Empty as &dyn HumaneAssertion
+    }
+
+    #[async_trait]
+    impl HumaneAssertion for Empty {
+        fn segments(&self) -> &'static str {
+            "be empty"
+        }
+
+        async fn run(
+            &self,
+            base_value: serde_json::Value,
+            args: &SegmentArgs<'_>,
+            civ: &mut Civilization,
+        ) -> Result<(), HumaneStepError> {
+            if value_is_empty(&base_value) {
+                Ok(())
+            } else {
+                Err(HumaneStepError::Assertion(HumaneTestFailure::Custom {
+                    msg: format!(
+                        "The value should be empty, but was:\n---\n{}\n---",
+                        serde_json::to_string(&base_value).expect("should be yaml-able"),
+                    ),
+                }))
+            }
+        }
+    }
+
+    pub struct NotEmpty;
+
+    inventory::submit! {
+        &NotEmpty as &dyn HumaneAssertion
+    }
+
+    #[async_trait]
+    impl HumaneAssertion for NotEmpty {
+        fn segments(&self) -> &'static str {
+            "not be empty"
+        }
+
+        async fn run(
+            &self,
+            base_value: serde_json::Value,
+            args: &SegmentArgs<'_>,
+            civ: &mut Civilization,
+        ) -> Result<(), HumaneStepError> {
+            if value_is_empty(&base_value) {
+                Err(HumaneStepError::Assertion(HumaneTestFailure::Custom {
+                    msg: format!(
+                        "The value should not be empty, but was an empty {} value",
+                        value_type(&base_value),
                     ),
                 }))
             } else {

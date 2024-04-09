@@ -19,7 +19,6 @@ steps:
   - I run "echo $A"
   - stdout should contain "variable"
   - stdout should not contain "constant"
-  - stdout should not contain "my"
   # --snip--
   - stdout should not be empty
   - stdout should be exactly {content}

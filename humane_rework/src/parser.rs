@@ -5,7 +5,7 @@ use serde_json::{Map, Value};
 use crate::{
     errors::HumaneInputError,
     segments::{HumaneSegment, HumaneSegments},
-    HumaneTestFile, HumaneTestStep,
+    HumaneTestFile, HumaneTestStep, HumaneTestStepState,
 };
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -68,6 +68,7 @@ impl TryFrom<RawHumaneTestStep> for HumaneTestStep {
                     }
                 })?,
                 orig: r#ref,
+                state: HumaneTestStepState::Dormant,
             }),
             RawHumaneTestStep::BareStep(step) => parse_step(step, HashMap::new()),
             RawHumaneTestStep::StepWithParams { step, other } => {
@@ -78,6 +79,7 @@ impl TryFrom<RawHumaneTestStep> for HumaneTestStep {
                 snapshot_content: None,
                 args: HashMap::from_iter(other.into_iter()),
                 orig: snapshot,
+                state: HumaneTestStepState::Dormant,
             }),
         }
     }
@@ -93,12 +95,14 @@ fn parse_step(
             assertion: parse_segments(assertion)?,
             args,
             orig: step,
+            state: HumaneTestStepState::Dormant,
         })
     } else {
         Ok(HumaneTestStep::Instruction {
             step: parse_segments(&step)?,
             args,
             orig: step,
+            state: HumaneTestStepState::Dormant,
         })
     }
 }
@@ -243,7 +247,8 @@ mod test {
                     ]
                 },
                 args: HashMap::new(),
-                orig: "I have a {js} file".to_string()
+                orig: "I have a {js} file".to_string(),
+                state: HumaneTestStepState::Dormant
             }
         );
 
@@ -270,7 +275,8 @@ mod test {
                     ]
                 },
                 args: HashMap::new(),
-                orig: "The file {name} should contain {html}".to_string()
+                orig: "The file {name} should contain {html}".to_string(),
+                state: HumaneTestStepState::Dormant
             }
         );
     }

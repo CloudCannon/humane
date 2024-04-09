@@ -12,6 +12,7 @@ pub fn write_yaml_snapshots(input_doc: &str, hydrated_file: &HumaneTestFile) -> 
                 snapshot_content,
                 args,
                 orig,
+                state,
             } => {
                 let Some(snapshot_content) = snapshot_content else {
                     continue;
