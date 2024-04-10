@@ -34,7 +34,7 @@ pub fn write_yaml_snapshots(input_doc: &str, hydrated_file: &HumaneTestFile) -> 
                 step.insert_block(
                     "snapshot_content",
                     snapshot_content.lines().map(|l| format!("  {l}")),
-                    yaml::Block::Literal(yaml::Chomp::Strip),
+                    yaml::Block::Literal(yaml::Chomp::Keep),
                 );
             }
             _ => {}

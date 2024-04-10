@@ -8,6 +8,12 @@ use crate::{
     HumaneTestFile, HumaneTestStep, HumaneTestStepState,
 };
 
+struct HumaneTestInput {
+    parsed: RawHumaneTestFile,
+    original_source: String,
+    file_path: PathBuf,
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 struct RawHumaneTestFile {
     test: String,
@@ -33,18 +39,20 @@ enum RawHumaneTestStep {
     },
 }
 
-impl TryFrom<RawHumaneTestFile> for HumaneTestFile {
+impl TryFrom<HumaneTestInput> for HumaneTestFile {
     type Error = HumaneInputError;
 
-    fn try_from(value: RawHumaneTestFile) -> Result<Self, Self::Error> {
-        let mut steps = Vec::with_capacity(value.steps.len());
-        for step in value.steps {
+    fn try_from(value: HumaneTestInput) -> Result<Self, Self::Error> {
+        let mut steps = Vec::with_capacity(value.parsed.steps.len());
+        for step in value.parsed.steps {
             steps.push(step.try_into()?);
         }
 
         Ok(HumaneTestFile {
-            test: value.test,
+            test: value.parsed.test,
             steps,
+            original_source: value.original_source,
+            file_path: value.file_path,
         })
     }
 }
@@ -100,10 +108,15 @@ fn parse_step(
     }
 }
 
-pub fn parse_file(s: &str) -> Result<HumaneTestFile, HumaneInputError> {
+pub fn parse_file(s: &str, p: PathBuf) -> Result<HumaneTestFile, HumaneInputError> {
     let raw_test = serde_yaml::from_str::<RawHumaneTestFile>(s)?;
 
-    raw_test.try_into()
+    HumaneTestInput {
+        parsed: raw_test,
+        original_source: s.to_string(),
+        file_path: p,
+    }
+    .try_into()
 }
 
 pub fn parse_segments(s: &str) -> Result<HumaneSegments, HumaneInputError> {

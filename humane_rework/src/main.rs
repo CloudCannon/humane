@@ -7,6 +7,7 @@ use console::style;
 use futures::stream::StreamExt;
 use futures::{future::join_all, stream::FuturesUnordered};
 use pagebrowse_lib::PagebrowseBuilder;
+use schematic::color::owo::OwoColorize;
 use segments::HumaneSegments;
 use similar_string::find_best_similarity;
 use tokio::fs::read_to_string;
@@ -16,6 +17,7 @@ use wax::Glob;
 use crate::definitions::{
     register_assertions, register_instructions, register_retrievers, HumaneInstruction,
 };
+use crate::differ::diff_snapshots;
 use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
 use crate::options::configure;
 use crate::parser::parse_segments;
@@ -24,6 +26,7 @@ use crate::{parser::parse_file, runner::run_humane_experiment, writer::write_yam
 
 mod civilization;
 mod definitions;
+mod differ;
 mod errors;
 mod options;
 mod parser;
@@ -36,6 +39,8 @@ mod writer;
 pub struct HumaneTestFile {
     pub test: String,
     pub steps: Vec<HumaneTestStep>,
+    pub original_source: String,
+    pub file_path: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -79,11 +84,14 @@ impl Display for HumaneTestStep {
         use HumaneTestStep::*;
 
         match self {
-            Ref { orig, .. }
-            | Instruction { orig, .. }
-            | Assertion { orig, .. }
-            | Snapshot { orig, .. } => {
+            Instruction { orig, .. } | Assertion { orig, .. } => {
                 write!(f, "{}", orig)
+            }
+            Ref { orig, .. } => {
+                write!(f, "run steps from: {}", orig)
+            }
+            Snapshot { orig, .. } => {
+                write!(f, "snapshot: {}", orig)
             }
         }
     }
@@ -161,7 +169,7 @@ async fn main() {
     let all_tests: HashMap<_, _> = files
         .into_iter()
         .filter_map(|(p, i)| {
-            let test_file = match parse_file(&i.unwrap()) {
+            let test_file = match parse_file(&i.unwrap(), p.clone()) {
                 Ok(f) => f,
                 Err(e) => {
                     errors.push(e);
@@ -221,86 +229,144 @@ async fn main() {
 
     // let mut humanity = FuturesUnordered::new();
 
-    let handle_res =
-        |universe: Arc<Universe>, (file, res): (HumaneTestFile, Result<(), HumaneTestError>)| {
-            match res {
-                Ok(_) => {
-                    let msg = format!("✅ {}", file.test);
-                    println!("{}", style(msg).green());
+    let handle_res = |universe: Arc<Universe>,
+                      (file, res): (HumaneTestFile, Result<(), HumaneTestError>)|
+     -> Result<(), ()> {
+        let log_err_preamble = || {
+            println!("{}", style(&format!("✘ {}", &file.test)).red().bold());
+            println!("{}", style("--- STEPS ---").on_yellow().bold());
+            for step in &file.steps {
+                use HumaneTestStepState::*;
+                println!(
+                    "{}",
+                    match step.state() {
+                        Dormant => style(format!("⦸ {step}")).dim(),
+                        Failed => style(format!("✘ {step}")).red(),
+                        Passed => style(format!("✓ {step}")).green(),
+                    }
+                );
+            }
+        };
+
+        let output_doc = write_yaml_snapshots(&file.original_source, &file);
+
+        match res {
+            Ok(_) => {
+                if output_doc == file.original_source {
+                    let msg = format!("✓ {}", file.test);
+                    println!("{}", msg.green());
+                    Ok(())
+                } else {
+                    println!("{}", format!("⚠ {}", &file.test).yellow().bold());
+                    println!("{}\n", "--- SNAPSHOT CHANGED ---".on_bright_yellow().bold());
+                    diff_snapshots(&file.original_source, &output_doc);
+                    println!(
+                        "\n{}",
+                        "--- END SNAPSHOT CHANGE ---".on_bright_yellow().bold()
+                    );
+                    println!(
+                        "\n{}",
+                        "Run in interactive mode to accept new snapshots\n"
+                            .bright_red()
+                            .bold()
+                    );
+                    Err(())
                 }
-                Err(e) => {
-                    let log_err_preamble = || {
-                        println!(
-                            "{}",
-                            style(&format!("\n### Test failed: {}", &file.test))
-                                .red()
-                                .bold()
-                        );
-                        println!("{}", style("--- STEPS ---").on_yellow().bold());
-                        for step in &file.steps {
-                            use HumaneTestStepState::*;
-                            println!(
-                                "{}",
-                                match step.state() {
-                                    Dormant => style(format!("⦸ {step}")).dim(),
-                                    Failed => style(format!("✘ {step}")).red(),
-                                    Passed => style(format!("✓ {step}")).green(),
+            }
+            Err(e) => {
+                let log_err = || {
+                    log_err_preamble();
+                    println!("{}", "--- ERROR ---".on_yellow().bold());
+                    println!("{}", &e.red());
+                };
+
+                let log_closest = |step_type: &str,
+                                   original_segment_string: &str,
+                                   user_segments: &HumaneSegments,
+                                   comparisons: &Vec<String>| {
+                    let comparator = user_segments.get_comparison_string();
+                    let (best_match, _) = find_best_similarity(&comparator, comparisons)
+                        .expect("Some comparisons should exist");
+                    let parsed = parse_segments(&best_match)
+                        .expect("strings were serialized so should always parse");
+
+                    eprintln!(
+                        "Unable to resolve: \"{}\"\n{step_type} \"{}\" was not found.",
+                        original_segment_string.red(),
+                        comparator.yellow(),
+                    );
+
+                    parsed
+                };
+
+                match &e.err {
+                    HumaneStepError::External(ex) => match ex {
+                        errors::HumaneInputError::NonexistentStep => {
+                            log_err_preamble();
+                            println!("{}", "--- ERROR ---".on_yellow().bold());
+                            match e.step {
+                                HumaneTestStep::Ref {
+                                    other_file,
+                                    orig,
+                                    state,
+                                } => todo!(),
+                                HumaneTestStep::Instruction {
+                                    step,
+                                    args,
+                                    orig,
+                                    state,
+                                } => {
+                                    let closest = log_closest(
+                                        "Instruction",
+                                        &orig,
+                                        &step,
+                                        &universe.instruction_comparisons,
+                                    );
+
+                                    let (actual_segments, _) = universe
+                                        .instructions
+                                        .get_key_value(&closest)
+                                        .expect("should exist in the global set");
+
+                                    eprintln!(
+                                        "Closest match: \"{}\"",
+                                        style(actual_segments.get_as_string()).cyan()
+                                    );
                                 }
-                            );
-                        }
-                    };
-                    let log_err = || {
-                        log_err_preamble();
-                        println!("{}", style("--- ERROR ---").on_yellow().bold());
-                        println!("{}", style(&e).red());
-                    };
-
-                    let log_closest =
-                        |step_type: &str,
-                         original_segment_string: &str,
-                         user_segments: &HumaneSegments,
-                         comparisons: &Vec<String>| {
-                            let comparator = user_segments.get_comparison_string();
-                            let (best_match, _) = find_best_similarity(&comparator, comparisons)
-                                .expect("Some comparisons should exist");
-                            let parsed = parse_segments(&best_match)
-                                .expect("strings were serialized so should always parse");
-
-                            eprintln!(
-                                "Unable to resolve: \"{}\"\n{step_type} \"{}\" was not found.",
-                                style(original_segment_string).red(),
-                                style(comparator).yellow(),
-                            );
-
-                            parsed
-                        };
-
-                    match &e.err {
-                        HumaneStepError::External(ex) => match ex {
-                            errors::HumaneInputError::NonexistentStep => {
-                                log_err_preamble();
-                                println!("{}", style("--- ERROR ---").on_yellow().bold());
-                                match e.step {
-                                    HumaneTestStep::Ref {
-                                        other_file,
-                                        orig,
-                                        state,
-                                    } => todo!(),
-                                    HumaneTestStep::Instruction {
-                                        step,
-                                        args,
-                                        orig,
-                                        state,
-                                    } => {
+                                HumaneTestStep::Assertion {
+                                    retrieval,
+                                    assertion,
+                                    args,
+                                    orig,
+                                    state,
+                                } => {
+                                    if !universe.retrievers.contains_key(&retrieval) {
                                         let closest = log_closest(
-                                            "Instruction",
+                                            "Retrieval",
                                             &orig,
-                                            &step,
-                                            &universe.instruction_comparisons,
+                                            &retrieval,
+                                            &universe.retriever_comparisons,
                                         );
 
                                         let (actual_segments, _) = universe
-                                            .instructions
+                                            .retrievers
+                                            .get_key_value(&closest)
+                                            .expect("should exist in the global set");
+
+                                        eprintln!(
+                                            "Closest match: \"{}\"",
+                                            style(actual_segments.get_as_string()).cyan()
+                                        );
+                                    } else {
+                                        let closest = log_closest(
+                                            "Assertion",
+                                            &orig,
+                                            &assertion,
+                                            &universe.assertion_comparisons,
+                                        );
+
+                                        let (actual_segments, _) = universe
+                                            .assertions
                                             .get_key_value(&closest)
                                             .expect("should exist in the global set");
 
@@ -309,69 +375,28 @@ async fn main() {
                                             style(actual_segments.get_as_string()).cyan()
                                         );
                                     }
-                                    HumaneTestStep::Assertion {
-                                        retrieval,
-                                        assertion,
-                                        args,
-                                        orig,
-                                        state,
-                                    } => {
-                                        if !universe.retrievers.contains_key(&retrieval) {
-                                            let closest = log_closest(
-                                                "Retrieval",
-                                                &orig,
-                                                &retrieval,
-                                                &universe.retriever_comparisons,
-                                            );
-
-                                            let (actual_segments, _) = universe
-                                                .retrievers
-                                                .get_key_value(&closest)
-                                                .expect("should exist in the global set");
-
-                                            eprintln!(
-                                                "Closest match: \"{}\"",
-                                                style(actual_segments.get_as_string()).cyan()
-                                            );
-                                        } else {
-                                            let closest = log_closest(
-                                                "Assertion",
-                                                &orig,
-                                                &assertion,
-                                                &universe.assertion_comparisons,
-                                            );
-
-                                            let (actual_segments, _) = universe
-                                                .assertions
-                                                .get_key_value(&closest)
-                                                .expect("should exist in the global set");
-
-                                            eprintln!(
-                                                "Closest match: \"{}\"",
-                                                style(actual_segments.get_as_string()).cyan()
-                                            );
-                                        }
-                                    }
-                                    HumaneTestStep::Snapshot {
-                                        snapshot,
-                                        snapshot_content,
-                                        args,
-                                        orig,
-                                        state,
-                                    } => todo!(),
                                 }
+                                HumaneTestStep::Snapshot {
+                                    snapshot,
+                                    snapshot_content,
+                                    args,
+                                    orig,
+                                    state,
+                                } => todo!(),
                             }
-                            _ => {
-                                log_err();
-                            }
-                        },
+                        }
                         _ => {
                             log_err();
                         }
+                    },
+                    _ => {
+                        log_err();
                     }
                 }
+                Err(())
             }
-        };
+        }
+    };
 
     let semaphore = Arc::new(tokio::sync::Semaphore::new(universe.ctx.params.concurrency));
 
@@ -382,9 +407,7 @@ async fn main() {
         let uni = Arc::clone(&universe);
         hands.push(tokio::spawn(async move {
             let res = run_humane_experiment(&mut test, Arc::clone(&uni)).await;
-            let passed = res.is_ok();
-
-            handle_res(uni, (test, res));
+            let passed = handle_res(uni, (test, res)).is_ok();
 
             drop(permit);
 
@@ -404,23 +427,6 @@ async fn main() {
             _ => Err(()),
         })
         .collect::<Vec<_>>();
-
-    // for step in test.steps.iter_mut() {
-    //     match step {
-    //         HumaneTestStep::Snapshot {
-    //             snapshot,
-    //             snapshot_content,
-    //             args,
-    //             orig,
-    //         } => {
-    //             *snapshot_content = Some("Wahoooo\nmy snapshot content\ngoes here!!".to_string());
-    //         }
-    //         _ => {}
-    //     }
-    // }
-
-    // let output_doc = write_yaml_snapshots(&file, &test);
-    // println!("---\n{output_doc}\n---");
 
     let duration = start.elapsed();
     let duration = format!(

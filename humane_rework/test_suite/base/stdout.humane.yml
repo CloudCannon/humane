@@ -1,4 +1,4 @@
-test: stdout contains text
+test: Humane tests the contents of stdout contains text
 
 steps:
   - step: I have a "my_test.humane.yml" file with the content {yaml}

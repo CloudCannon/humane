@@ -1,0 +1,20 @@
+test: Humane tests the contents of a file contains text
+
+steps:
+  - step: I have a "my_test.humane.yml" file with the content {yaml}
+    yaml: |-
+      test: Inner test
+
+      steps:
+        - I have a "testing_file" file with the content "Hello World!"
+        - The file "testing_file" should contain "ello"
+  - I run "%humane_path%"
+  - snapshot: stdout
+    snapshot_content: |-
+      |
+        ✅ Inner test
+
+        Passing tests: 1
+        Failing tests: 0
+
+        All tests passed in 0.003 seconds

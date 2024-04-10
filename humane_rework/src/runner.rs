@@ -137,7 +137,31 @@ async fn run_humane_steps(
                 orig: _,
                 state,
             } => {
-                println!("TODO: Need to snapshot: {snapshot:?}");
+                let Some((reference_ret, retrieval_step)) =
+                    civ.universe.retrievers.get_key_value(snapshot)
+                else {
+                    return Err(mark_and_return_step_error(
+                        HumaneStepError::External(HumaneInputError::NonexistentStep),
+                        state,
+                    ));
+                };
+
+                let retrieval_args =
+                    SegmentArgs::build(reference_ret, snapshot, args, Some(&civ.universe.ctx))
+                        .map_err(|e| mark_and_return_step_error(e.into(), state))?;
+
+                let value = retrieval_step
+                    .run(&retrieval_args, civ)
+                    .await
+                    .map_err(|e| mark_and_return_step_error(e.into(), state))?;
+
+                let value_content = match &value {
+                    serde_json::Value::String(s) => s.clone(),
+                    _ => serde_yaml::to_string(&value).expect("snapshot value is serializable"),
+                };
+
+                *snapshot_content = Some(value_content);
+                *state = HumaneTestStepState::Passed;
             }
         }
     }
