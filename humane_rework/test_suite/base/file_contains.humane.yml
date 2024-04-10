@@ -1,4 +1,4 @@
-test: Humane tests the contents of a file contains text
+test: The contents of a file contain text
 
 steps:
   - step: I have a "my_test.humane.yml" file with the content {yaml}
