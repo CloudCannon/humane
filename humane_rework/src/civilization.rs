@@ -3,7 +3,7 @@ use std::{
     fs,
     io::{Read, Write},
     path::PathBuf,
-    process::Command,
+    process::{Command, ExitStatus},
     str::from_utf8,
     sync::Arc,
 };
@@ -82,12 +82,21 @@ impl<'u> Civilization<'u> {
         file.write_all(contents.as_bytes()).unwrap();
     }
 
-    pub fn read_file(&mut self, filename: &str) -> String {
+    pub fn read_file(&mut self, filename: &str) -> Result<String, HumaneTestFailure> {
         let file_path = self.tmp_file_path(filename);
-        let mut file = std::fs::File::open(&file_path).unwrap();
+        let mut file = std::fs::File::open(&file_path).map_err(|e| {
+            let msg = match e.kind() {
+                std::io::ErrorKind::NotFound => "the file does not exist".to_string(),
+                _ => "the file was not readable".to_string(),
+            };
+            HumaneTestFailure::Custom { msg }
+        })?;
         let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        contents
+        file.read_to_string(&mut contents)
+            .map_err(|_| HumaneTestFailure::Custom {
+                msg: "the file was not valid UTF-8".to_string(),
+            })?;
+        Ok(contents)
     }
 
     pub fn get_file_tree(&mut self) -> String {
@@ -141,7 +150,7 @@ impl<'u> Civilization<'u> {
         self.env_vars.insert(name, value);
     }
 
-    pub fn run_command(&mut self, cmd: String) -> Result<(), HumaneTestFailure> {
+    pub fn run_command(&mut self, cmd: String) -> Result<ExitStatus, HumaneTestFailure> {
         let mut command = Command::new("sh");
         command
             .arg("-c")
@@ -158,17 +167,11 @@ impl<'u> Civilization<'u> {
             });
         };
 
-        if !output.status.success() {
-            return Err(HumaneTestFailure::Custom {
-                msg: format!("Failed to run command ({}): {cmd}", output.status),
-            });
-        }
-
         self.last_command_output = Some(CommandOutput {
             stdout: from_utf8(&output.stdout).unwrap_or("failed utf8").into(),
             stderr: from_utf8(&output.stderr).unwrap_or("failed utf8").into(),
         });
 
-        Ok(())
+        Ok(output.status)
     }
 }

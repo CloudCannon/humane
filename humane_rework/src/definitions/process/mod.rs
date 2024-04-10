@@ -38,6 +38,8 @@ mod env_var {
 }
 
 mod run {
+    use crate::errors::HumaneTestFailure;
+
     use super::*;
 
     pub struct Run;
@@ -59,7 +61,55 @@ mod run {
         ) -> Result<(), HumaneStepError> {
             let command = args.get_string("command")?;
 
-            civ.run_command(command.to_string())?;
+            let exit_status = civ.run_command(command.to_string())?;
+
+            if !exit_status.success() {
+                return Err(HumaneTestFailure::Custom {
+                    msg: format!("Failed to run command ({})\nCommand: {command}\nstdout:\n---\n{}\n---\nstderr:\n---\n{}\n---",
+                    exit_status,
+                    civ.last_command_output.as_ref().map(|o| o.stdout.as_str()).unwrap_or_else(|| "<empty>"),
+                    civ.last_command_output.as_ref().map(|o| o.stderr.as_str()).unwrap_or_else(|| "<empty>"),
+                ),
+                }
+                .into());
+            }
+
+            Ok(())
+        }
+    }
+
+    pub struct FailingRun;
+
+    inventory::submit! {
+        &FailingRun as &dyn HumaneInstruction
+    }
+
+    #[async_trait]
+    impl HumaneInstruction for FailingRun {
+        fn segments(&self) -> &'static str {
+            "I run {command} and expect it to fail"
+        }
+
+        async fn run(
+            &self,
+            args: &SegmentArgs<'_>,
+            civ: &mut Civilization,
+        ) -> Result<(), HumaneStepError> {
+            let command = args.get_string("command")?;
+
+            let exit_status = civ.run_command(command.to_string())?;
+
+            if exit_status.success() {
+                return Err(HumaneTestFailure::Custom {
+                    msg: format!(
+                        "Command ran successfully, but should not have ({})\nCommand: {command}\nstdout:\n---\n{}\n---\nstderr:\n---\n{}\n---",
+                        exit_status,
+                        civ.last_command_output.as_ref().map(|o| o.stdout.as_str()).unwrap_or_else(|| "<empty>"),
+                        civ.last_command_output.as_ref().map(|o| o.stderr.as_str()).unwrap_or_else(|| "<empty>"),
+                    ),
+                }
+                .into());
+            }
 
             Ok(())
         }

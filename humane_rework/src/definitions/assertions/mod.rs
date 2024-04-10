@@ -160,6 +160,80 @@ mod contain {
     }
 }
 
+mod exactly {
+    use crate::errors::{HumaneInternalError, HumaneTestFailure};
+
+    use super::*;
+
+    pub struct Exactly;
+
+    inventory::submit! {
+        &Exactly as &dyn HumaneAssertion
+    }
+
+    #[async_trait]
+    impl HumaneAssertion for Exactly {
+        fn segments(&self) -> &'static str {
+            "be exactly {expected}"
+        }
+
+        async fn run(
+            &self,
+            base_value: serde_json::Value,
+            args: &SegmentArgs<'_>,
+            civ: &mut Civilization,
+        ) -> Result<(), HumaneStepError> {
+            let expected = args.get_value("expected")?;
+
+            if base_value == expected {
+                Ok(())
+            } else {
+                Err(HumaneStepError::Assertion(HumaneTestFailure::Custom {
+                    msg: format!(
+                        "The value\n---\n{}\n---\nshould be exactly the following value, but is not\n---\n{}\n---",
+                        serde_json::to_string(&base_value).expect("should be yaml-able"),
+                        serde_json::to_string(&expected).expect("should be yaml-able")
+                    ),
+                }))
+            }
+        }
+    }
+
+    pub struct NotExactly;
+
+    inventory::submit! {
+        &NotExactly as &dyn HumaneAssertion
+    }
+
+    #[async_trait]
+    impl HumaneAssertion for NotExactly {
+        fn segments(&self) -> &'static str {
+            "not be exactly {expected}"
+        }
+
+        async fn run(
+            &self,
+            base_value: serde_json::Value,
+            args: &SegmentArgs<'_>,
+            civ: &mut Civilization,
+        ) -> Result<(), HumaneStepError> {
+            let expected = args.get_value("expected")?;
+
+            if base_value != expected {
+                Ok(())
+            } else {
+                Err(HumaneStepError::Assertion(HumaneTestFailure::Custom {
+                    msg: format!(
+                        "The value\n---\n{}\n---\nshould be exactly the following value, but is not\n---\n{}\n---",
+                        serde_json::to_string(&base_value).expect("should be yaml-able"),
+                        serde_json::to_string(&expected).expect("should be yaml-able")
+                    ),
+                }))
+            }
+        }
+    }
+}
+
 mod empty {
     use crate::errors::{HumaneInternalError, HumaneTestFailure};
 

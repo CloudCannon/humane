@@ -26,8 +26,6 @@ pub async fn run_humane_experiment(
         universe,
     };
 
-    run_humane_steps(&mut input.setup, &mut civ).await?;
-
     run_humane_steps(&mut input.steps, &mut civ).await?;
 
     civ.shutdown().await;

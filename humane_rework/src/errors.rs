@@ -7,15 +7,15 @@ use crate::HumaneTestStep;
 
 #[derive(Error, Debug)]
 pub enum HumaneInputError {
-    #[error("Argument {arg} was not supplied. (have [{has}])")]
+    #[error("Argument \"{arg}\" was not supplied. (have {has})")]
     NonexistentArgument { arg: String, has: String },
-    #[error("Argument {arg} expected to be a {expected}, but is a {was}")]
+    #[error("Argument \"{arg}\" expected to be a {expected}, but is a {was}")]
     IncorrectArgumentType {
         arg: String,
         was: String,
         expected: String,
     },
-    #[error("Argument {arg} requires a value, cannot be empty")]
+    #[error("Argument \"{arg}\" requires a value, cannot be empty")]
     ArgumentRequiresValue { arg: String },
     #[error("yaml failed to parse: {0}")]
     ParseError(#[from] serde_yaml::Error),

@@ -35,7 +35,6 @@ mod writer;
 #[derive(Debug, Clone)]
 pub struct HumaneTestFile {
     pub test: String,
-    pub setup: Vec<HumaneTestStep>,
     pub steps: Vec<HumaneTestStep>,
 }
 

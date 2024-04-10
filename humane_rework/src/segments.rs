@@ -77,6 +77,14 @@ impl HumaneSegments {
     }
 }
 
+fn has_args_string<V>(args: &HashMap<String, V>) -> String {
+    if args.is_empty() {
+        "no arguments".to_string()
+    } else {
+        args.keys().cloned().collect::<Vec<_>>().join(", ")
+    }
+}
+
 pub struct SegmentArgs<'a> {
     args: HashMap<String, &'a serde_json::Value>,
     placeholder_delim: String,
@@ -109,7 +117,7 @@ impl<'a> SegmentArgs<'a> {
                     let Some(var_val) = supplied_args.get(var) else {
                         return Err(HumaneInputError::NonexistentArgument {
                             arg: var.to_string(),
-                            has: supplied_args.keys().cloned().collect::<Vec<_>>().join(", "),
+                            has: has_args_string(supplied_args),
                         });
                     };
                     args.insert(inst_key.to_owned(), var_val);
@@ -133,7 +141,7 @@ impl<'a> SegmentArgs<'a> {
         let Some(value) = self.args.get(k.as_ref()) else {
             return Err(HumaneInputError::NonexistentArgument {
                 arg: k.as_ref().to_string(),
-                has: self.args.keys().cloned().collect::<Vec<_>>().join(", "),
+                has: has_args_string(&self.args),
             });
         };
 
@@ -147,7 +155,7 @@ impl<'a> SegmentArgs<'a> {
         let Some(value) = self.args.get(k.as_ref()) else {
             return Err(HumaneInputError::NonexistentArgument {
                 arg: k.as_ref().to_string(),
-                has: self.args.keys().cloned().collect::<Vec<_>>().join(", "),
+                has: has_args_string(&self.args),
             });
         };
 

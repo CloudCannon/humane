@@ -11,7 +11,6 @@ use crate::{
 #[derive(serde::Serialize, serde::Deserialize)]
 struct RawHumaneTestFile {
     test: String,
-    setup: Vec<RawHumaneTestStep>,
     steps: Vec<RawHumaneTestStep>,
 }
 
@@ -38,11 +37,6 @@ impl TryFrom<RawHumaneTestFile> for HumaneTestFile {
     type Error = HumaneInputError;
 
     fn try_from(value: RawHumaneTestFile) -> Result<Self, Self::Error> {
-        let mut setup = Vec::with_capacity(value.setup.len());
-        for setup_step in value.setup {
-            setup.push(setup_step.try_into()?);
-        }
-
         let mut steps = Vec::with_capacity(value.steps.len());
         for step in value.steps {
             steps.push(step.try_into()?);
@@ -50,7 +44,6 @@ impl TryFrom<RawHumaneTestFile> for HumaneTestFile {
 
         Ok(HumaneTestFile {
             test: value.test,
-            setup,
             steps,
         })
     }
@@ -125,19 +118,19 @@ pub fn parse_segments(s: &str) -> Result<HumaneSegments, HumaneInputError> {
 
     let mut mode = InstMode::None(0);
 
-    for (i, c) in s.chars().enumerate() {
+    for (i, c) in s.char_indices() {
         match &mut mode {
             InstMode::None(start) => match c {
                 '"' => {
-                    segments.push(Literal(s[*start..i].to_string()));
+                    segments.push(Literal(s[*start..i].to_lowercase()));
                     mode = InstMode::InQuote(i, '"');
                 }
                 '\'' => {
-                    segments.push(Literal(s[*start..i].to_string()));
+                    segments.push(Literal(s[*start..i].to_lowercase()));
                     mode = InstMode::InQuote(i, '\'');
                 }
                 '{' => {
-                    segments.push(Literal(s[*start..i].to_string()));
+                    segments.push(Literal(s[*start..i].to_lowercase()));
                     mode = InstMode::InCurly(i);
                 }
                 _ => {}

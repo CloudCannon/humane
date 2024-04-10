@@ -1,10 +1,13 @@
 test: Exact Phrase Matching
 
-setup:
+steps:
   - ref: ../base-vars.humane.yml
   - I have a "public/index.html" file with the content "<p>Hello World</p>"
-
-steps:
+  - step: I have a "rosey/base.json" file with the content {json}
+    json: |-
+      {
+        "k": 4
+      }
   - I have a "public/cat/index.html" file with the content "<html lang='en'><body><h1>Happy post about cats</h1></body></html>"
   - step: I have a "public/dog/index.html" file with the content {html}
     html: |-
@@ -21,7 +24,8 @@ steps:
   - stdout should not contain "constant"
   # --snip--
   - stdout should not be empty
-  - stdout should be exactly {content}
+  - step: stdout should be exactly {content}
+    content: "my variable a\n"
 
   - step: The file "rosey/base.json" should contain the values {values}
     values:
@@ -50,7 +54,11 @@ steps:
       attributes:
         href: "/en/"
 
-  # - snapshot: The directory "public"
+  - snapshot: The directory "public"
+    snapshot_contents: |-
+      ===
+      snapshot contents
+      ===
   - I serve the directory "public"
   - In my browser, I load "/"
   - step: In my browser, I evaluate {js}
@@ -67,4 +75,8 @@ steps:
   #     humane.assert_eq(data?.url, "/cat/");
 
   # - In my browser, there should be no logs
-  # - snapshot: In my browser, the element "input.pagefind"
+  - snapshot: In my browser, the element "input.pagefind"
+    snapshot_contents: |-
+      ===
+      <input type="text" />
+      ===
