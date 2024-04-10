@@ -11,14 +11,14 @@ steps:
   - I run "%humane_path% --porcelain"
   - snapshot: stdout
     snapshot_content: |-
-      | 
-      | Running tests
-      | 
-      | ✓ Inner test
-      | 
-      | Finished running tests
-      | 
-      | Passing tests: 1
-      | Failing tests: 0
-      | 
-      | All tests passed
+      ╎
+      ╎Running tests
+      ╎
+      ╎✓ Inner test
+      ╎
+      ╎Finished running tests
+      ╎
+      ╎Passing tests: 1
+      ╎Failing tests: 0
+      ╎
+      ╎All tests passed
