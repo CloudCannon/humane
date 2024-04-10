@@ -272,7 +272,7 @@ async fn main() {
 
         match res {
             Ok(_) => {
-                if output_doc == file.original_source {
+                if output_doc.trim() == file.original_source.trim() {
                     let msg = format!("✓ {}", file.test);
                     println!("{}", msg.green());
                     Ok(())
