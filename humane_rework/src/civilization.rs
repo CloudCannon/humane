@@ -168,8 +168,12 @@ impl<'u> Civilization<'u> {
         };
 
         self.last_command_output = Some(CommandOutput {
-            stdout: from_utf8(&output.stdout).unwrap_or("failed utf8").into(),
-            stderr: from_utf8(&output.stderr).unwrap_or("failed utf8").into(),
+            stdout: from_utf8(&strip_ansi_escapes::strip(&output.stdout))
+                .unwrap_or("failed utf8")
+                .into(),
+            stderr: from_utf8(&strip_ansi_escapes::strip(&output.stderr))
+                .unwrap_or("failed utf8")
+                .into(),
         });
 
         Ok(output.status)

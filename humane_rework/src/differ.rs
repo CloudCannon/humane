@@ -20,34 +20,38 @@ use std::{borrow::Cow, time::Duration};
 use console::style;
 use similar::{Algorithm, ChangeTag, TextDiff};
 
-pub fn diff_snapshots(old: &str, new: &str) {
+pub fn diff_snapshots(old: &str, new: &str) -> String {
     let newlines_matter = newlines_matter(old, new);
     let diff = TextDiff::configure()
         .algorithm(Algorithm::Patience)
         .timeout(Duration::from_millis(500))
         .diff_lines(old, new);
 
+    let mut lines = vec![];
+
     for op in diff.ops() {
         for change in diff.iter_inline_changes(op) {
             match change.tag() {
                 ChangeTag::Insert => {
-                    print!(
+                    let mut s = format!(
                         "{:>5} {:>5} │{}",
                         "",
                         style(change.new_index().unwrap()).cyan().dim().bold(),
                         style("+").green(),
                     );
+
                     for &(emphasized, change) in change.values() {
                         let change = render_invisible(change, newlines_matter);
                         if emphasized {
-                            print!("{}", style(change).green().underlined());
+                            s.push_str(&format!("{}", style(change).green().underlined()));
                         } else {
-                            print!("{}", style(change).green().dim());
+                            s.push_str(&format!("{}", style(change).green().dim()));
                         }
                     }
+                    lines.push(s);
                 }
                 ChangeTag::Delete => {
-                    print!(
+                    let mut s = format!(
                         "{:>5} {:>5} │{}",
                         style(change.old_index().unwrap()).cyan().dim(),
                         "",
@@ -56,29 +60,34 @@ pub fn diff_snapshots(old: &str, new: &str) {
                     for &(emphasized, change) in change.values() {
                         let change = render_invisible(change, newlines_matter);
                         if emphasized {
-                            print!("{}", style(change).red().underlined());
+                            s.push_str(&format!("{}", style(change).red().underlined()));
                         } else {
-                            print!("{}", style(change).red().dim());
+                            s.push_str(&format!("{}", style(change).red().dim()));
                         }
                     }
+                    lines.push(s);
                 }
                 ChangeTag::Equal => {
-                    print!(
+                    let mut s = format!(
                         "{:>5} {:>5} │ ",
                         style(change.old_index().unwrap()).cyan().dim(),
                         style(change.new_index().unwrap()).cyan().dim().bold(),
                     );
                     for &(_, change) in change.values() {
                         let change = render_invisible(change, newlines_matter);
-                        print!("{}", style(change).dim());
+                        s.push_str(&format!("{}", style(change).dim()));
                     }
+                    lines.push(s);
                 }
             }
+
             if change.missing_newline() {
-                println!();
+                lines.push("\n".to_string());
             }
         }
     }
+
+    lines.join("")
 }
 
 fn trailing_newline(s: &str) -> &str {

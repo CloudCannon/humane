@@ -1,9 +1,10 @@
+use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::sync::Arc;
 use std::time::Duration;
 use std::{collections::HashMap, path::PathBuf, time::Instant};
 
-use console::style;
+use console::{style, Term};
 use futures::stream::StreamExt;
 use futures::{future::join_all, stream::FuturesUnordered};
 use pagebrowse_lib::PagebrowseBuilder;
@@ -19,21 +20,25 @@ use crate::definitions::{
 };
 use crate::differ::diff_snapshots;
 use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
+use crate::interactive::{confirm_snapshot, get_run_mode, question, RunMode};
 use crate::options::configure;
 use crate::parser::parse_segments;
 use crate::universe::Universe;
-use crate::{parser::parse_file, runner::run_humane_experiment, writer::write_yaml_snapshots};
+use crate::{
+    parser::parse_file, runner::run_humane_experiment, snapshot_writer::write_yaml_snapshots,
+};
 
 mod civilization;
 mod definitions;
 mod differ;
 mod errors;
+mod interactive;
 mod options;
 mod parser;
 mod runner;
 mod segments;
+mod snapshot_writer;
 mod universe;
-mod writer;
 
 #[derive(Debug, Clone)]
 pub struct HumaneTestFile {
@@ -166,7 +171,7 @@ async fn main() {
     }
 
     let mut errors = vec![];
-    let all_tests: HashMap<_, _> = files
+    let all_tests: BTreeMap<_, _> = files
         .into_iter()
         .filter_map(|(p, i)| {
             let test_file = match parse_file(&i.unwrap(), p.clone()) {
@@ -227,11 +232,26 @@ async fn main() {
         ctx,
     });
 
-    // let mut humanity = FuturesUnordered::new();
+    let run_mode = if universe.ctx.params.interactive {
+        match get_run_mode(&universe) {
+            Ok(mode) => mode,
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
+    } else {
+        RunMode::All
+    };
+
+    enum HoldingError {
+        TestFailure,
+        SnapFailure { out: String },
+    }
 
     let handle_res = |universe: Arc<Universe>,
-                      (file, res): (HumaneTestFile, Result<(), HumaneTestError>)|
-     -> Result<(), ()> {
+                      (file, res): (&HumaneTestFile, Result<(), HumaneTestError>)|
+     -> Result<(), HoldingError> {
         let log_err_preamble = || {
             println!("{}", style(&format!("✘ {}", &file.test)).red().bold());
             println!("{}", style("--- STEPS ---").on_yellow().bold());
@@ -258,19 +278,21 @@ async fn main() {
                     Ok(())
                 } else {
                     println!("{}", format!("⚠ {}", &file.test).yellow().bold());
-                    println!("{}\n", "--- SNAPSHOT CHANGED ---".on_bright_yellow().bold());
-                    diff_snapshots(&file.original_source, &output_doc);
-                    println!(
-                        "\n{}",
-                        "--- END SNAPSHOT CHANGE ---".on_bright_yellow().bold()
-                    );
-                    println!(
-                        "\n{}",
-                        "Run in interactive mode to accept new snapshots\n"
-                            .bright_red()
-                            .bold()
-                    );
-                    Err(())
+                    if !universe.ctx.params.interactive {
+                        println!("{}\n", "--- SNAPSHOT CHANGED ---".on_bright_yellow().bold());
+                        println!("{}", diff_snapshots(&file.original_source, &output_doc));
+                        println!(
+                            "\n{}",
+                            "--- END SNAPSHOT CHANGE ---".on_bright_yellow().bold()
+                        );
+                        println!(
+                            "\n{}",
+                            "Run in interactive mode (-i) to accept new snapshots\n"
+                                .bright_red()
+                                .bold()
+                        );
+                    }
+                    Err(HoldingError::SnapFailure { out: output_doc })
                 }
             }
             Err(e) => {
@@ -393,7 +415,7 @@ async fn main() {
                         log_err();
                     }
                 }
-                Err(())
+                Err(HoldingError::TestFailure)
             }
         }
     };
@@ -402,21 +424,33 @@ async fn main() {
 
     let mut hands = vec![];
 
-    for mut test in universe.tests.values().cloned() {
-        let permit = semaphore.clone().acquire_owned().await.unwrap();
-        let uni = Arc::clone(&universe);
-        hands.push(tokio::spawn(async move {
-            let res = run_humane_experiment(&mut test, Arc::clone(&uni)).await;
-            let passed = handle_res(uni, (test, res)).is_ok();
+    println!("\n{}\n", "Running tests".bold());
 
-            drop(permit);
+    match run_mode {
+        RunMode::All => {
+            for mut test in universe.tests.values().cloned() {
+                let permit = semaphore.clone().acquire_owned().await.unwrap();
+                let uni = Arc::clone(&universe);
+                hands.push(tokio::spawn(async move {
+                    let res = run_humane_experiment(&mut test, Arc::clone(&uni)).await;
+                    let holding_err = handle_res(uni, (&test, res));
 
-            if passed {
-                Ok(())
-            } else {
-                Err(())
+                    drop(permit);
+
+                    holding_err.map_err(|e| (test, e))
+                }));
             }
-        }));
+        }
+        RunMode::One(t) => {
+            let mut test = universe.tests.get(&t).cloned().unwrap();
+            let uni = Arc::clone(&universe);
+            hands.push(tokio::spawn(async move {
+                let res = run_humane_experiment(&mut test, Arc::clone(&uni)).await;
+                let holding_err = handle_res(uni, (&test, res));
+
+                holding_err.map_err(|e| (test, e))
+            }));
+        }
     }
 
     let results = join_all(hands)
@@ -424,22 +458,81 @@ async fn main() {
         .into_iter()
         .map(|outer_err| match outer_err {
             Ok(Ok(_)) => Ok(()),
-            _ => Err(()),
+            Ok(Err(e)) => Err(e),
+            Err(e) => panic!("Failed to await all tests: {e}"),
         })
         .collect::<Vec<_>>();
 
-    let duration = start.elapsed();
-    let duration = format!(
-        "{}.{:03} seconds",
-        duration.as_secs(),
-        duration.subsec_millis()
-    );
+    let snapshot_failures = results
+        .iter()
+        .filter_map(|r| match r {
+            Err((f, HoldingError::SnapFailure { out })) => Some((f, out)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let mut resolved_errors = 0;
 
-    let failing = results.iter().filter(|r| r.is_err()).count();
-    let passing = results.iter().filter(|r| r.is_ok()).count();
+    println!("\n{}\n", "Finished running tests".bold());
+
+    let interactive = universe.ctx.params.interactive;
+    if interactive && !snapshot_failures.is_empty() {
+        let review_snapshots = match question(format!(
+            "{} {}. Review now?",
+            snapshot_failures.len(),
+            if snapshot_failures.len() == 1 {
+                "snapshot has changed"
+            } else {
+                "snapshots have changed"
+            },
+        )) {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        };
+
+        if review_snapshots {
+            let term = Term::stdout();
+
+            for (file, failure) in results.iter().filter_map(|r| match r {
+                Ok(_) => None,
+                Err(e) => Some(e),
+            }) {
+                match failure {
+                    HoldingError::TestFailure => {}
+                    HoldingError::SnapFailure { out } => {
+                        if confirm_snapshot(&term, &file, &out).is_ok_and(|v| v) {
+                            resolved_errors += 1;
+
+                            if let Err(e) = tokio::fs::write(&file.file_path, out).await {
+                                eprintln!("Unable to write updates snapshot to disk.\n{e}");
+                                std::process::exit(1);
+                            }
+                        }
+                    }
+                }
+            }
+            println!("\n\n");
+        }
+    }
+
+    let duration = start.elapsed();
+    let duration = if universe.ctx.params.porcelain {
+        "".to_string()
+    } else {
+        format!(
+            " in {}.{:03} seconds",
+            duration.as_secs(),
+            duration.subsec_millis()
+        )
+    };
+
+    let failing = results.iter().filter(|r| r.is_err()).count() - resolved_errors;
+    let passing = results.iter().filter(|r| r.is_ok()).count() + resolved_errors;
 
     println!(
-        "\n{}\n{}",
+        "{}\n{}",
         style(&format!("Passing tests: {}", passing)).cyan(),
         style(&format!("Failing tests: {}", failing)).cyan()
     );
@@ -447,13 +540,13 @@ async fn main() {
     if failing > 0 {
         println!(
             "{}",
-            style(&format!("\nSome tests failed in {}", duration)).red()
+            style(&format!("\nSome tests failed{}", duration)).red()
         );
         std::process::exit(1);
     } else {
         println!(
             "{}",
-            style(&format!("\nAll tests passed in {}", duration)).green()
+            style(&format!("\nAll tests passed{}", duration)).green()
         );
     }
 }

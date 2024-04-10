@@ -1,5 +1,9 @@
 use pagebrowse_lib::Pagebrowser;
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use crate::{
     definitions::{HumaneAssertion, HumaneInstruction, HumaneRetriever},
@@ -10,7 +14,7 @@ use crate::{
 
 pub struct Universe<'u> {
     pub pagebrowser: Arc<Pagebrowser>,
-    pub tests: HashMap<PathBuf, HumaneTestFile>,
+    pub tests: BTreeMap<PathBuf, HumaneTestFile>,
     pub instructions: HashMap<HumaneSegments, &'u dyn HumaneInstruction>,
     pub instruction_comparisons: Vec<String>,
     pub retrievers: HashMap<HumaneSegments, &'u dyn HumaneRetriever>,

@@ -77,6 +77,18 @@ fn get_cli_matches() -> ArgMatches {
             )
             .action(clap::ArgAction::SetTrue),
         )
+        .arg(
+            arg!(
+                --porcelain ... "Reduce logging to be stable"
+            )
+            .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            arg!(
+                -i --interactive ... "Run humane in interactive mode"
+            )
+            .action(clap::ArgAction::SetTrue),
+        )
         .get_matches()
 }
 
@@ -90,6 +102,13 @@ pub struct HumaneParams {
     /// Print verbose logging while building. Does not impact the output files
     #[setting(env = "HUMANE_VERBOSE")]
     pub verbose: bool,
+
+    /// Reduce logging to be stable
+    #[setting(env = "HUMANE_PORCELAIN")]
+    pub porcelain: bool,
+
+    /// Run humane in interactive mode
+    pub interactive: bool,
 
     /// How many tests should be run concurrently
     #[setting(env = "HUMANE_CONCURRENCY")]
@@ -133,6 +152,14 @@ impl HumaneParams {
     fn override_from_cli(&mut self, cli_matches: ArgMatches) {
         if cli_matches.get_flag("verbose") {
             self.verbose = true;
+        }
+
+        if cli_matches.get_flag("porcelain") {
+            self.porcelain = true;
+        }
+
+        if cli_matches.get_flag("interactive") {
+            self.interactive = true;
         }
 
         if let Some(root) = cli_matches.get_one::<PathBuf>("root") {
