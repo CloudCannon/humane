@@ -21,8 +21,10 @@ pub enum HumaneInputError {
     ParseError(#[from] serde_yaml::Error),
     #[error("unclosed argument, expected a {expected} character")]
     UnclosedValue { expected: char },
-    #[error("invalid path: {input}")]
+    #[error("invalid path: \"{input}\"")]
     InvalidPath { input: String },
+    #[error("invalid reference: \"{input}\". (closest available: \"{closest}\")")]
+    InvalidRef { input: String, closest: String },
     #[error("step does not exist")]
     NonexistentStep,
     #[error("step requirements were not met: {reason}")]

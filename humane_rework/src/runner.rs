@@ -1,3 +1,7 @@
+use async_recursion::async_recursion;
+use futures::FutureExt;
+use normalize_path::NormalizePath;
+use similar_string::find_best_similarity;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use console::style;
@@ -26,14 +30,16 @@ pub async fn run_humane_experiment(
         universe,
     };
 
-    run_humane_steps(&mut input.steps, &mut civ).await?;
+    run_humane_steps(&input.file_directory, &mut input.steps, &mut civ).await?;
 
     civ.shutdown().await;
 
     Ok(())
 }
 
+#[async_recursion]
 async fn run_humane_steps(
+    file_directory: &String,
     steps: &mut Vec<HumaneTestStep>,
     civ: &mut Civilization<'_>,
 ) -> Result<(), HumaneTestError> {
@@ -54,9 +60,43 @@ async fn run_humane_steps(
             crate::HumaneTestStep::Ref {
                 other_file,
                 orig: _,
+                hydrated_steps,
                 state,
             } => {
-                println!("TODO: Need to load {other_file:?}")
+                let target_path = PathBuf::from(file_directory)
+                    .join(other_file)
+                    .normalize()
+                    .to_string_lossy()
+                    .into_owned();
+                let Some(target_file) = civ.universe.tests.get(&target_path).cloned() else {
+                    let avail = civ.universe.tests.keys().collect::<Vec<_>>();
+                    let closest = find_best_similarity(&target_path, &avail).map(|s| s.0);
+                    return Err(mark_and_return_step_error(
+                        HumaneStepError::External(HumaneInputError::InvalidRef {
+                            input: target_path,
+                            closest: closest.unwrap_or_else(|| "<nothing found>".to_string()),
+                        }),
+                        state,
+                    ));
+                };
+
+                *hydrated_steps = Some(target_file.steps);
+
+                match run_humane_steps(
+                    &target_file.file_directory,
+                    hydrated_steps.as_mut().unwrap(),
+                    civ,
+                )
+                .await
+                {
+                    Ok(_) => {
+                        *state = HumaneTestStepState::Passed;
+                    }
+                    Err(e) => {
+                        *state = HumaneTestStepState::Failed;
+                        return Err(e);
+                    }
+                }
             }
             crate::HumaneTestStep::Instruction {
                 step,

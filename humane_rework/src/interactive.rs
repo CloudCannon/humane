@@ -5,13 +5,14 @@ use dialoguer::{theme::ColorfulTheme, Confirm, FuzzySelect, Select};
 use schematic::color::owo::OwoColorize;
 
 use crate::{
-    differ::diff_snapshots, errors::HumaneInternalError, universe::Universe, HumaneTestFile,
+    differ::diff_snapshots, errors::HumaneInternalError, parser::HumaneFileType,
+    universe::Universe, HumaneTestFile,
 };
 
 #[derive(Debug)]
 pub enum RunMode {
     All,
-    One(PathBuf),
+    One(String),
 }
 
 impl From<dialoguer::Error> for HumaneInternalError {
@@ -51,11 +52,12 @@ pub fn get_run_mode(universe: &Arc<Universe>) -> Result<RunMode, HumaneInternalE
     let tests = universe
         .tests
         .iter()
-        .map(|(k, v)| (k, &v.test))
+        .filter(|(_, v)| v.r#type == HumaneFileType::Test)
+        .map(|(k, v)| (k, &v.name))
         .collect::<Vec<_>>();
     let test_names = tests
         .iter()
-        .map(|(path, name)| format!("{} ({})", path.to_string_lossy(), name))
+        .map(|(path, name)| format!("{} ({})", path, name))
         .collect::<Vec<_>>();
 
     let test = FuzzySelect::with_theme(&ColorfulTheme::default())
@@ -95,8 +97,8 @@ pub fn confirm_snapshot(
         "\n- - - - - - - - - - - - - - -\n\n{}",
         "Reviewing snapshot".bold()
     );
-    println!("File: {}", file.file_path.to_string_lossy().magenta());
-    println!("Name: {}\n", file.test.cyan());
+    println!("File: {}", file.file_path.magenta());
+    println!("Name: {}\n", file.name.cyan());
 
     let mut resp = None;
     while resp.is_none() {

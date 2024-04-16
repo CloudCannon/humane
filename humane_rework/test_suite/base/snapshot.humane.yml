@@ -1,9 +1,9 @@
-test: Snapshots will snapshot
+name: Snapshots will snapshot
 
 steps:
   - step: I have a "my_test.humane.yml" file with the content {yaml}
     yaml: |-
-      test: Inner passing snapshot test
+      name: Inner passing snapshot test
 
       steps:
         - I run 'echo "Aenean eu leo quam"'
@@ -26,7 +26,7 @@ steps:
       ╎All tests passed
   - step: I have a "my_test.humane.yml" file with the content {yaml}
     yaml: |-
-      test: Inner failing snapshot test
+      name: Inner failing snapshot test
 
       steps:
         - I run 'echo "Aenean eu leo quam"'
@@ -42,7 +42,7 @@ steps:
       ╎⚠ Inner failing snapshot test
       ╎--- SNAPSHOT CHANGED ---
       ╎
-      ╎    0     0 │ test: Inner failing snapshot test
+      ╎    0     0 │ name: Inner failing snapshot test
       ╎    1     1 │ 
       ╎    2     2 │ steps:
       ╎    3     3 │   - I run 'echo "Aenean eu leo quam"'

@@ -7,7 +7,9 @@ use std::{collections::HashMap, path::PathBuf, time::Instant};
 use console::{style, Term};
 use futures::stream::StreamExt;
 use futures::{future::join_all, stream::FuturesUnordered};
+use normalize_path::NormalizePath;
 use pagebrowse_lib::PagebrowseBuilder;
+use parser::HumaneFileType;
 use schematic::color::owo::OwoColorize;
 use segments::HumaneSegments;
 use similar_string::find_best_similarity;
@@ -21,6 +23,7 @@ use crate::definitions::{
 use crate::differ::diff_snapshots;
 use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
 use crate::interactive::{confirm_snapshot, get_run_mode, question, RunMode};
+use crate::logging::log_step_runs;
 use crate::options::configure;
 use crate::parser::parse_segments;
 use crate::universe::Universe;
@@ -33,6 +36,7 @@ mod definitions;
 mod differ;
 mod errors;
 mod interactive;
+mod logging;
 mod options;
 mod parser;
 mod runner;
@@ -42,10 +46,12 @@ mod universe;
 
 #[derive(Debug, Clone)]
 pub struct HumaneTestFile {
-    pub test: String,
+    pub name: String,
+    r#type: HumaneFileType,
     pub steps: Vec<HumaneTestStep>,
     pub original_source: String,
-    pub file_path: PathBuf,
+    pub file_path: String,
+    pub file_directory: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,8 +64,9 @@ pub enum HumaneTestStepState {
 #[derive(Debug, Clone, PartialEq)]
 pub enum HumaneTestStep {
     Ref {
-        other_file: PathBuf,
+        other_file: String,
         orig: String,
+        hydrated_steps: Option<Vec<HumaneTestStep>>,
         state: HumaneTestStepState,
     },
     Instruction {
@@ -181,7 +188,7 @@ async fn main() {
                     return None;
                 }
             };
-            Some((p, test_file))
+            Some((p.normalize().to_string_lossy().into_owned(), test_file))
         })
         .collect();
 
@@ -253,19 +260,9 @@ async fn main() {
                       (file, res): (&HumaneTestFile, Result<(), HumaneTestError>)|
      -> Result<(), HoldingError> {
         let log_err_preamble = || {
-            println!("{}", style(&format!("✘ {}", &file.test)).red().bold());
+            println!("{}", style(&format!("✘ {}", &file.name)).red().bold());
             println!("{}", style("--- STEPS ---").on_yellow().bold());
-            for step in &file.steps {
-                use HumaneTestStepState::*;
-                println!(
-                    "{}",
-                    match step.state() {
-                        Dormant => style(format!("⦸ {step}")).dim(),
-                        Failed => style(format!("✘ {step}")).red(),
-                        Passed => style(format!("✓ {step}")).green(),
-                    }
-                );
-            }
+            log_step_runs(&file.steps, 0);
         };
 
         let output_doc = write_yaml_snapshots(&file.original_source, &file);
@@ -273,11 +270,11 @@ async fn main() {
         match res {
             Ok(_) => {
                 if output_doc.trim() == file.original_source.trim() {
-                    let msg = format!("✓ {}", file.test);
+                    let msg = format!("✓ {}", file.name);
                     println!("{}", msg.green());
                     Ok(())
                 } else {
-                    println!("{}", format!("⚠ {}", &file.test).yellow().bold());
+                    println!("{}", format!("⚠ {}", &file.name).yellow().bold());
                     if !universe.ctx.params.interactive {
                         println!("{}\n", "--- SNAPSHOT CHANGED ---".on_bright_yellow().bold());
                         println!("{}", diff_snapshots(&file.original_source, &output_doc));
@@ -326,12 +323,13 @@ async fn main() {
                         errors::HumaneInputError::NonexistentStep => {
                             log_err_preamble();
                             println!("{}", "--- ERROR ---".on_yellow().bold());
-                            match e.step {
+                            match &e.step {
                                 HumaneTestStep::Ref {
                                     other_file,
                                     orig,
+                                    hydrated_steps,
                                     state,
-                                } => todo!(),
+                                } => println!("{}", &e.red()),
                                 HumaneTestStep::Instruction {
                                     step,
                                     args,
@@ -428,7 +426,12 @@ async fn main() {
 
     match run_mode {
         RunMode::All => {
-            for mut test in universe.tests.values().cloned() {
+            for mut test in universe
+                .tests
+                .values()
+                .filter(|v| v.r#type == HumaneFileType::Test)
+                .cloned()
+            {
                 let permit = semaphore.clone().acquire_owned().await.unwrap();
                 let uni = Arc::clone(&universe);
                 hands.push(tokio::spawn(async move {

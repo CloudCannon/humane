@@ -1,5 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
+use path_slash::{PathBufExt, PathExt};
 use serde_json::{Map, Value};
 
 use crate::{
@@ -11,12 +12,21 @@ use crate::{
 struct HumaneTestInput {
     parsed: RawHumaneTestFile,
     original_source: String,
-    file_path: PathBuf,
+    file_path: String,
+    file_directory: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum HumaneFileType {
+    Test,
+    Reference,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct RawHumaneTestFile {
-    test: String,
+    name: String,
+    r#type: Option<HumaneFileType>,
     steps: Vec<RawHumaneTestStep>,
 }
 
@@ -49,10 +59,12 @@ impl TryFrom<HumaneTestInput> for HumaneTestFile {
         }
 
         Ok(HumaneTestFile {
-            test: value.parsed.test,
+            name: value.parsed.name,
+            r#type: value.parsed.r#type.unwrap_or(HumaneFileType::Test),
             steps,
             original_source: value.original_source,
             file_path: value.file_path,
+            file_directory: value.file_directory,
         })
     }
 }
@@ -63,12 +75,14 @@ impl TryFrom<RawHumaneTestStep> for HumaneTestStep {
     fn try_from(value: RawHumaneTestStep) -> Result<Self, Self::Error> {
         match value {
             RawHumaneTestStep::Ref { r#ref } => Ok(HumaneTestStep::Ref {
-                other_file: PathBuf::try_from(&r#ref).map_err(|_| {
-                    HumaneInputError::InvalidPath {
+                other_file: PathBuf::try_from(&r#ref)
+                    .map_err(|_| HumaneInputError::InvalidPath {
                         input: r#ref.clone(),
-                    }
-                })?,
+                    })?
+                    .to_slash_lossy()
+                    .into_owned(),
                 orig: r#ref,
+                hydrated_steps: None,
                 state: HumaneTestStepState::Dormant,
             }),
             RawHumaneTestStep::BareStep(step) => parse_step(step, HashMap::new()),
@@ -114,7 +128,11 @@ pub fn parse_file(s: &str, p: PathBuf) -> Result<HumaneTestFile, HumaneInputErro
     HumaneTestInput {
         parsed: raw_test,
         original_source: s.to_string(),
-        file_path: p,
+        file_path: p.to_slash_lossy().into_owned(),
+        file_directory: p
+            .parent()
+            .map(|p| p.to_slash_lossy().into_owned())
+            .unwrap_or_else(|| ".".to_string()),
     }
     .try_into()
 }

@@ -14,7 +14,7 @@ use crate::{
 
 pub struct Universe<'u> {
     pub pagebrowser: Arc<Pagebrowser>,
-    pub tests: BTreeMap<PathBuf, HumaneTestFile>,
+    pub tests: BTreeMap<String, HumaneTestFile>,
     pub instructions: HashMap<HumaneSegments, &'u dyn HumaneInstruction>,
     pub instruction_comparisons: Vec<String>,
     pub retrievers: HashMap<HumaneSegments, &'u dyn HumaneRetriever>,

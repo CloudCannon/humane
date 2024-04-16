@@ -1,9 +1,9 @@
-test: The contents of stdout contain text
+name: The contents of stdout contain text
 
 steps:
   - step: I have a "my_test.humane.yml" file with the content {yaml}
     yaml: |-
-      test: Inner test
+      name: Inner test
 
       steps:
         - I run 'echo "humane 🙂"'
@@ -15,7 +15,7 @@ steps:
   - stderr should be empty
   - step: I have a "my_test.humane.yml" file with the content {yaml}
     yaml: |-
-      test: Inner test
+      name: Inner test
 
       steps:
         - I run 'echo "humane 🙁"'
