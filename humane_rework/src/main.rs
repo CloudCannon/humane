@@ -12,7 +12,7 @@ use pagebrowse_lib::PagebrowseBuilder;
 use parser::HumaneFileType;
 use schematic::color::owo::OwoColorize;
 use segments::HumaneSegments;
-use similar_string::find_best_similarity;
+use similar_string::{compare_similarity, find_best_similarity};
 use tokio::fs::read_to_string;
 use tokio::time::sleep;
 use wax::Glob;
@@ -142,6 +142,20 @@ impl HumaneTestStep {
     }
 }
 
+fn closest_strings<'o>(target: &String, options: &'o Vec<String>) -> Vec<(&'o String, f64)> {
+    let mut scores = options
+        .iter()
+        .map(|s| (s, compare_similarity(target, s)))
+        .collect::<Vec<_>>();
+
+    scores.sort_by(|a, b| {
+        b.partial_cmp(a)
+            .expect("similarities should not be NaN or Infinity")
+    });
+
+    scores
+}
+
 #[tokio::main]
 async fn main() {
     let ctx = configure();
@@ -239,7 +253,7 @@ async fn main() {
         ctx,
     });
 
-    let run_mode = if universe.ctx.params.interactive {
+    let run_mode = if universe.ctx.params.interactive && !universe.ctx.params.all {
         match get_run_mode(&universe) {
             Ok(mode) => mode,
             Err(e) => {
@@ -304,10 +318,8 @@ async fn main() {
                                    user_segments: &HumaneSegments,
                                    comparisons: &Vec<String>| {
                     let comparator = user_segments.get_comparison_string();
-                    let (best_match, _) = find_best_similarity(&comparator, comparisons)
-                        .expect("Some comparisons should exist");
-                    let parsed = parse_segments(&best_match)
-                        .expect("strings were serialized so should always parse");
+
+                    let matches = closest_strings(&comparator, comparisons);
 
                     eprintln!(
                         "Unable to resolve: \"{}\"\n{step_type} \"{}\" was not found.",
@@ -315,7 +327,19 @@ async fn main() {
                         comparator.yellow(),
                     );
 
-                    parsed
+                    matches
+                        .into_iter()
+                        .enumerate()
+                        .filter_map(|(i, (s, score))| {
+                            if i > 5 && score < 0.6 {
+                                None
+                            } else if i > 0 && score < 0.4 {
+                                None
+                            } else {
+                                Some(parse_segments(&s).unwrap())
+                            }
+                        })
+                        .collect::<Vec<_>>()
                 };
 
                 match &e.err {
@@ -343,15 +367,25 @@ async fn main() {
                                         &universe.instruction_comparisons,
                                     );
 
-                                    let (actual_segments, _) = universe
-                                        .instructions
-                                        .get_key_value(&closest)
-                                        .expect("should exist in the global set");
+                                    let matches = closest
+                                        .into_iter()
+                                        .map(|m| {
+                                            let (actual_segments, _) = universe
+                                                .instructions
+                                                .get_key_value(&m)
+                                                .expect("should exist in the global set");
+                                            format!(
+                                                "• {}",
+                                                style(actual_segments.get_as_string()).cyan()
+                                            )
+                                        })
+                                        .collect::<Vec<_>>();
 
-                                    eprintln!(
-                                        "Closest match: \"{}\"",
-                                        style(actual_segments.get_as_string()).cyan()
-                                    );
+                                    if matches.is_empty() {
+                                        eprintln!("{}", "No similar instructions found".red());
+                                    } else {
+                                        eprintln!("Closest instructions:\n{}", matches.join("\n"));
+                                    }
                                 }
                                 HumaneTestStep::Assertion {
                                     retrieval,
@@ -368,15 +402,28 @@ async fn main() {
                                             &universe.retriever_comparisons,
                                         );
 
-                                        let (actual_segments, _) = universe
-                                            .retrievers
-                                            .get_key_value(&closest)
-                                            .expect("should exist in the global set");
+                                        let matches = closest
+                                            .into_iter()
+                                            .map(|m| {
+                                                let (actual_segments, _) = universe
+                                                    .retrievers
+                                                    .get_key_value(&m)
+                                                    .expect("should exist in the global set");
+                                                format!(
+                                                    "• {}",
+                                                    style(actual_segments.get_as_string()).cyan()
+                                                )
+                                            })
+                                            .collect::<Vec<_>>();
 
-                                        eprintln!(
-                                            "Closest match: \"{}\"",
-                                            style(actual_segments.get_as_string()).cyan()
-                                        );
+                                        if matches.is_empty() {
+                                            eprintln!("{}", "No similar retrievals found".red());
+                                        } else {
+                                            eprintln!(
+                                                "Closest retrievals:\n{}",
+                                                matches.join("\n")
+                                            );
+                                        }
                                     } else {
                                         let closest = log_closest(
                                             "Assertion",
@@ -385,15 +432,28 @@ async fn main() {
                                             &universe.assertion_comparisons,
                                         );
 
-                                        let (actual_segments, _) = universe
-                                            .assertions
-                                            .get_key_value(&closest)
-                                            .expect("should exist in the global set");
+                                        let matches = closest
+                                            .into_iter()
+                                            .map(|m| {
+                                                let (actual_segments, _) = universe
+                                                    .assertions
+                                                    .get_key_value(&m)
+                                                    .expect("should exist in the global set");
+                                                format!(
+                                                    "• {}",
+                                                    style(actual_segments.get_as_string()).cyan()
+                                                )
+                                            })
+                                            .collect::<Vec<_>>();
 
-                                        eprintln!(
-                                            "Closest match: \"{}\"",
-                                            style(actual_segments.get_as_string()).cyan()
-                                        );
+                                        if matches.is_empty() {
+                                            eprintln!("{}", "No similar assertions found".red());
+                                        } else {
+                                            eprintln!(
+                                                "Closest assertions:\n{}",
+                                                matches.join("\n")
+                                            );
+                                        }
                                     }
                                 }
                                 HumaneTestStep::Snapshot {

@@ -89,6 +89,12 @@ fn get_cli_matches() -> ArgMatches {
             )
             .action(clap::ArgAction::SetTrue),
         )
+        .arg(
+            arg!(
+                -a --all ... "Run all tests when in interactive mode"
+            )
+            .action(clap::ArgAction::SetTrue),
+        )
         .get_matches()
 }
 
@@ -109,6 +115,9 @@ pub struct HumaneParams {
 
     /// Run humane in interactive mode
     pub interactive: bool,
+
+    /// Run all tests when in interactive mode
+    pub all: bool,
 
     /// How many tests should be run concurrently
     #[setting(env = "HUMANE_CONCURRENCY")]
@@ -160,6 +169,10 @@ impl HumaneParams {
 
         if cli_matches.get_flag("interactive") {
             self.interactive = true;
+        }
+
+        if cli_matches.get_flag("all") {
+            self.all = true;
         }
 
         if let Some(root) = cli_matches.get_one::<PathBuf>("root") {

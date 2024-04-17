@@ -9,6 +9,8 @@ use super::{HumaneInstruction, HumaneRetriever, SegmentArgs};
 
 use pagebrowse_lib::{PagebrowseBuilder, Pagebrowser, PagebrowserWindow};
 
+const HARNESS: &'static str = include_str!("./harness.js");
+
 mod load_page {
     use super::*;
 
@@ -60,32 +62,7 @@ mod eval_js {
     use super::*;
 
     fn harnessed(js: String) -> String {
-        format!(
-            r#"
-                const humane_errs = [];
-
-                const humane = {{
-                    assert_eq: (left, right) => {{
-                        if (left !== right) {{
-                            humane_errs.push(`Equality Assertion failed. Left: ${{JSON.stringify(left)}}, Right: ${{JSON.stringify(right)}}`);
-                        }}
-                    }}
-                }}
-                
-                const inner = async () => {{
-                    {js}
-                }}
-
-                let inner_response;
-                try {{
-                    inner_response = await inner();
-                }} catch (e) {{
-                    humane_errs.push(`JavaScript error: ${{e}}`);
-                }}
-                
-                return {{ humane_errs, inner_response }};
-            "#
-        )
+        HARNESS.replace("// insert_humane_inner_js", &js)
     }
 
     async fn eval_and_return_js(

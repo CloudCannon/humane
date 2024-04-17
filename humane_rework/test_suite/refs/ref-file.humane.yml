@@ -45,7 +45,7 @@ steps:
           js: |-
             document.querySelector("p").innerText = "O.G.";
         - ref: "../refs/assert.humane.yml"
-  - I run "%humane_path%" and expect it to fail
+  - I run "%humane_path% --porcelain" and expect it to fail
   - step: "stdout should contain 'Passing tests: 0'"
   - step: "stdout should contain 'Failing tests: 1'"
   - step: "stdout should contain 'Some tests failed'"
@@ -76,5 +76,5 @@ steps:
       ╎Passing tests: 0
       ╎Failing tests: 1
       ╎
-      ╎Some tests failed in 1.157 seconds
+      ╎Some tests failed
   - stderr should be empty

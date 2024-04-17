@@ -27,7 +27,7 @@ steps:
   - stderr should be empty
   - step: I have a "my_test.humane.yml" file with the content {yaml}
     yaml: |-
-      name: Inner passing test
+      name: Inner failing test
 
       steps:
         - I have a "public/index.html" file with the content "<p>Hello World</p>"

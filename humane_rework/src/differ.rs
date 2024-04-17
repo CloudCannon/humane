@@ -40,9 +40,13 @@ pub fn diff_snapshots(old: &str, new: &str) -> String {
                         style("+").green(),
                     );
 
+                    let has_emphasis = change.values().iter().any(|(e, _)| *e);
+
                     for &(emphasized, change) in change.values() {
                         let change = render_invisible(change, newlines_matter);
-                        if emphasized {
+                        if !has_emphasis {
+                            s.push_str(&format!("{}", style(change).green()));
+                        } else if emphasized {
                             s.push_str(&format!("{}", style(change).green().underlined()));
                         } else {
                             s.push_str(&format!("{}", style(change).green().dim()));
