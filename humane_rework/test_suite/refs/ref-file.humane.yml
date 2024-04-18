@@ -70,6 +70,8 @@ steps:
       ╎  humane.assert_eq(p.innerText, "Modifried");
       ╎--
       ╎Failed assertion: Equality Assertion failed. Left: "O.G.", Right: "Modifried"
+      ╎browser console:
+      ╎
       ╎
       ╎Finished running tests
       ╎

@@ -92,6 +92,8 @@ steps:
       ╎  humane.assert_eq(span.innerText, "added");
       ╎--
       ╎Failed assertion: Error: querySelector timed out at 250ms, no elements matching "span"
+      ╎browser console:
+      ╎
       ╎
       ╎Finished running tests
       ╎

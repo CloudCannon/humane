@@ -45,6 +45,8 @@ pub enum HumaneInternalError {
 pub enum HumaneTestFailure {
     #[error("{msg}")]
     Custom { msg: String },
+    #[error("{msg}\nbrowser console:\n{logs}")]
+    BrowserJavascriptErr { msg: String, logs: String },
 }
 
 #[derive(Error, Debug)]

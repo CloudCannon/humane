@@ -238,7 +238,9 @@ async fn main() {
             "{}/../../pagebrowse/target/debug/pagebrowse_manager",
             env!("CARGO_MANIFEST_DIR")
         ))
+        .init_script(include_str!("./definitions/browser/init.js").to_string())
         .build()
+        .await
         .expect("Can't build the pagebrowser");
 
     let universe = Arc::new(Universe {

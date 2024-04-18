@@ -95,13 +95,16 @@ mod eval_js {
         };
 
         if !errors.is_empty() {
-            return Err(HumaneStepError::Assertion(HumaneTestFailure::Custom {
-                msg: errors
-                    .iter()
-                    .map(|v| v.as_str().unwrap())
-                    .collect::<Vec<_>>()
-                    .join("\n"),
-            }));
+            return Err(HumaneStepError::Assertion(
+                HumaneTestFailure::BrowserJavascriptErr {
+                    msg: errors
+                        .iter()
+                        .map(|v| v.as_str().unwrap())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                    logs: map.get("logs").unwrap().as_str().unwrap().to_string(),
+                },
+            ));
         }
 
         Ok(map
@@ -155,6 +158,27 @@ mod eval_js {
             let js = args.get_string("js")?;
 
             eval_and_return_js(js, civ).await
+        }
+    }
+
+    pub struct GetConsole;
+
+    inventory::submit! {
+        &GetConsole as &dyn HumaneRetriever
+    }
+
+    #[async_trait]
+    impl HumaneRetriever for GetConsole {
+        fn segments(&self) -> &'static str {
+            "In my browser, the console"
+        }
+
+        async fn run(
+            &self,
+            args: &SegmentArgs<'_>,
+            civ: &mut Civilization,
+        ) -> Result<serde_json::Value, HumaneStepError> {
+            eval_and_return_js("return humane_log_events[`ALL`];".to_string(), civ).await
         }
     }
 }
