@@ -21,7 +21,7 @@ use crate::definitions::{
     register_assertions, register_instructions, register_retrievers, HumaneInstruction,
 };
 use crate::differ::diff_snapshots;
-use crate::errors::{HumaneStepError, HumaneTestError, HumaneTestFailure};
+use crate::errors::{HumaneInputError, HumaneStepError, HumaneTestError, HumaneTestFailure};
 use crate::interactive::{confirm_snapshot, get_run_mode, question, RunMode};
 use crate::logging::log_step_runs;
 use crate::options::configure;
@@ -173,30 +173,27 @@ async fn main() {
         .collect::<Vec<_>>();
 
     let files = join_all(loaded_files).await;
-    let errors: Vec<_> = files
-        .iter()
-        .filter_map(|(path, inner)| {
-            if let Err(e) = inner {
-                Some(format!("Failed to load {}: {e}", path.to_string_lossy()))
-            } else {
-                None
-            }
-        })
-        .collect();
-    if !errors.is_empty() {
-        eprintln!("Humane failed to load some files:");
-        for e in errors {
-            eprintln!("  • {e}");
-        }
-        std::process::exit(1);
-    }
+
+    let mut names_thus_far: Vec<(String, String)> = vec![];
 
     let mut errors = vec![];
     let all_tests: BTreeMap<_, _> = files
         .into_iter()
         .filter_map(|(p, i)| {
             let test_file = match parse_file(&i.unwrap(), p.clone()) {
-                Ok(f) => f,
+                Ok(f) => {
+                    if let Some((_, other_path)) = names_thus_far.iter().find(|(n, _)| *n == f.name)
+                    {
+                        errors.push(HumaneInputError::DuplicateName {
+                            path_one: other_path.to_string(),
+                            path_two: p.to_string_lossy().to_string(),
+                            name: f.name.clone(),
+                        });
+                        return None;
+                    }
+                    names_thus_far.push((f.name.clone(), p.to_string_lossy().to_string()));
+                    f
+                }
                 Err(e) => {
                     errors.push(e);
                     return None;

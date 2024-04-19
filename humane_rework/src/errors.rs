@@ -23,6 +23,12 @@ pub enum HumaneInputError {
     UnclosedValue { expected: char },
     #[error("invalid path: \"{input}\"")]
     InvalidPath { input: String },
+    #[error("duplicate name of \"{name}\" on the files {path_one} and {path_two}")]
+    DuplicateName {
+        path_one: String,
+        path_two: String,
+        name: String,
+    },
     #[error("invalid reference: \"{input}\". (closest available: \"{closest}\")")]
     InvalidRef { input: String, closest: String },
     #[error("step does not exist")]

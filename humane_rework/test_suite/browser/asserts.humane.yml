@@ -29,7 +29,7 @@ steps:
   - stderr should be empty
   - step: I have a "my_test.humane.yml" file with the content {yaml}
     yaml: |-
-      name: Inner failing test
+      name: Inner failing test 1
 
       steps:
         - ref: ./setup.humane.yml
@@ -38,7 +38,7 @@ steps:
             humane.assert_eq(document.querySelector("p").innerText, "Goodbye World");
   - step: I have a "f2.humane.yml" file with the content {yaml}
     yaml: |-
-      name: Inner failing test
+      name: Inner failing test 2
 
       steps:
         - ref: ./setup.humane.yml
@@ -47,7 +47,7 @@ steps:
             humane.assert_gte(2, 4);
   - step: I have a "f3.humane.yml" file with the content {yaml}
     yaml: |-
-      name: Inner failing test
+      name: Inner failing test 3
 
       steps:
         - ref: ./setup.humane.yml
@@ -56,7 +56,7 @@ steps:
             humane.assert_lte(4, 2);
   - step: I have a "f4.humane.yml" file with the content {yaml}
     yaml: |-
-      name: Inner failing test
+      name: Inner failing test 4
 
       steps:
         - ref: ./setup.humane.yml
