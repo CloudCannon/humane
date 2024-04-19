@@ -273,10 +273,26 @@ async fn main() {
     }
 
     let handle_res = |universe: Arc<Universe>,
-                      (file, res): (&HumaneTestFile, Result<(), HumaneTestError>)|
+                      (file, res): (&HumaneTestFile, Result<(), HumaneTestError>),
+                      started_at: Instant|
      -> Result<(), HoldingError> {
+        let dur = if universe.ctx.params.porcelain {
+            "".to_string()
+        } else {
+            let e = started_at.elapsed();
+            format!("[{}.{:03}s] ", e.as_secs(), e.subsec_millis())
+        };
+
         let log_err_preamble = || {
-            println!("{}", style(&format!("✘ {}", &file.name)).red().bold());
+            println!(
+                "{}",
+                format!(
+                    "{}{}{}",
+                    "✘ ".red().bold(),
+                    dur.red().bold().dimmed(),
+                    &file.name.red().bold()
+                )
+            );
             println!("{}", style("--- STEPS ---").on_yellow().bold());
             log_step_runs(&file.steps, 0);
         };
@@ -286,11 +302,24 @@ async fn main() {
         match res {
             Ok(_) => {
                 if output_doc.trim() == file.original_source.trim() {
-                    let msg = format!("✓ {}", file.name);
+                    let msg = format!(
+                        "{}{}{}",
+                        "✓ ".green(),
+                        dur.green().dimmed(),
+                        &file.name.green()
+                    );
                     println!("{}", msg.green());
                     Ok(())
                 } else {
-                    println!("{}", format!("⚠ {}", &file.name).yellow().bold());
+                    println!(
+                        "{}",
+                        format!(
+                            "{}{}{}",
+                            "⚠ ".yellow().bold(),
+                            dur.yellow().bold().dimmed(),
+                            &file.name.yellow().bold()
+                        )
+                    );
                     if !universe.ctx.params.interactive {
                         println!("{}\n", "--- SNAPSHOT CHANGED ---".on_bright_yellow().bold());
                         println!("{}", diff_snapshots(&file.original_source, &output_doc));
@@ -497,8 +526,9 @@ async fn main() {
                 let permit = semaphore.clone().acquire_owned().await.unwrap();
                 let uni = Arc::clone(&universe);
                 hands.push(tokio::spawn(async move {
+                    let start = Instant::now();
                     let res = run_humane_experiment(&mut test, Arc::clone(&uni)).await;
-                    let holding_err = handle_res(uni, (&test, res));
+                    let holding_err = handle_res(uni, (&test, res), start);
 
                     drop(permit);
 
@@ -510,8 +540,9 @@ async fn main() {
             let mut test = universe.tests.get(&t).cloned().unwrap();
             let uni = Arc::clone(&universe);
             hands.push(tokio::spawn(async move {
+                let start = Instant::now();
                 let res = run_humane_experiment(&mut test, Arc::clone(&uni)).await;
-                let holding_err = handle_res(uni, (&test, res));
+                let holding_err = handle_res(uni, (&test, res), start);
 
                 holding_err.map_err(|e| (test, e))
             }));

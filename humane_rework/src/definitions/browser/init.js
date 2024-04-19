@@ -47,6 +47,34 @@ class HumaneHarness {
     }
   }
 
+  assert_lte(left, right) {
+    if (left > right) {
+      this.errors.push(
+        `<= Assertion failed. Left: ${JSON.stringify(
+          left
+        )}, was greater than Right: ${JSON.stringify(right)}`
+      );
+    }
+  }
+
+  assert_gte(left, right) {
+    if (left < right) {
+      this.errors.push(
+        `>= Assertion failed. Left: ${JSON.stringify(
+          left
+        )}, was less than Right: ${JSON.stringify(right)}`
+      );
+    }
+  }
+
+  assert(value) {
+    if (!value) {
+      this.errors.push(
+        `Assertion failed, value was falsey. Value: ${JSON.stringify(value)}`
+      );
+    }
+  }
+
   async waitFor(q, timeout = 4000) {
     let start = Date.now();
     const throttle = 50; // TODO: configure
