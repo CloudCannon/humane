@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+## v0.9.1 (May 7, 2024)
+
 * Halved Humane's baked in concurrency
   * Resolves some CI issues
   * This is a temporary measure while Humane's rework is underway
