@@ -22,7 +22,7 @@ impl Humane {
 
         let r = Cucumber::new()
             .steps(Civilization::collection())
-            .max_concurrent_scenarios(Some(8))
+            .max_concurrent_scenarios(Some(4))
             .after(|_, _, _, maybe_world| {
                 Box::pin(async move {
                     if let Some(world) = maybe_world {

@@ -51,8 +51,13 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.rust }}
 
       - name: Install Rust
-        run: |
-          rustup install ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: ${{ matrix.rust }}
+            target: ${{ matrix.target }}
+            override: true
+            default: true
+            components: rustfmt, clippy
 
       - name: Install Chrome
         uses: browser-actions/setup-chrome@latest
